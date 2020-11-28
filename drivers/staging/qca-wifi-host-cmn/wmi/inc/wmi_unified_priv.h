@@ -90,6 +90,8 @@
 #define wmi_info_rl(params...) QDF_TRACE_INFO_RL(QDF_MODULE_ID_WMI, params)
 #define wmi_debug_rl(params...) QDF_TRACE_DEBUG_RL(QDF_MODULE_ID_WMI, params)
 
+#ifdef WMI_INTERFACE_EVENT_LOGGING
+
 /**
  * struct wmi_command_debug - WMI command log buffer data type
  * @ command - Store WMI Command id
@@ -195,6 +197,8 @@ struct wmi_debug_log_info {
 	struct dentry *wmi_log_debugfs_dir;
 	uint8_t wmi_instance_id;
 };
+
+#endif /*WMI_INTERFACE_EVENT_LOGGING */
 
 #ifdef WLAN_OPEN_SOURCE
 struct fwdebug {
