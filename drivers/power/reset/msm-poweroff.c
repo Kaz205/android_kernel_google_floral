@@ -77,9 +77,7 @@ static void scm_disable_sdi(void);
  * So the SDI cannot be re-enabled when it already by-passed.
  */
 static int download_mode = 1;
-static bool force_warm_reboot;
-static bool force_warm_reboot_on_thermal;
-static bool force_warm_reboot_on_ab_update;
+static bool force_warm_reboot = true;
 
 #ifdef CONFIG_QCOM_DLOAD_MODE
 #define EDL_MODE_PROP "qcom,msm-imem-emergency_download_mode"
@@ -423,10 +421,6 @@ static void msm_restart_prepare(const char *cmd)
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_SHUTDOWN_THERMAL);
 			__raw_writel(0x7766550b, restart_reason);
-
-			if (force_warm_reboot_on_thermal)
-				need_warm_reset = true;
-
 		} else if (!strncmp(cmd, "oem-", 4)) {
 			unsigned long code;
 			int ret;
@@ -438,9 +432,6 @@ static void msm_restart_prepare(const char *cmd)
 		} else if (!strncmp(cmd, "edl", 3)) {
 			enable_emergency_dload_mode();
 		} else {
-			if (!strcmp(cmd, "reboot-ab-update") &&
-					force_warm_reboot_on_ab_update)
-				need_warm_reset = true;
 			__raw_writel(0x77665501, restart_reason);
 		}
 	}
@@ -837,15 +828,6 @@ skip_sysfs_create:
 		set_dload_mode(download_mode);
 	if (!download_mode)
 		scm_disable_sdi();
-
-	force_warm_reboot = of_property_read_bool(dev->of_node,
-						"qcom,force-warm-reboot");
-
-	force_warm_reboot_on_thermal = of_property_read_bool(dev->of_node,
-						"qcom,force-warm-reboot-on-thermal-shutdown");
-
-	force_warm_reboot_on_ab_update = of_property_read_bool(dev->of_node,
-						"qcom,force-warm-reboot-on-reboot-ab-update");
 
 	return 0;
 
