@@ -6497,7 +6497,8 @@ static irqreturn_t arm_smmu_debug_capture_bus_match(int irq, void *dev)
 	void __iomem *tbu_base = tbu->base;
 	u64 mask[NO_OF_MASK_AND_MATCH], match[NO_OF_MASK_AND_MATCH];
 	u64 snapshot[NO_OF_CAPTURE_POINTS][REGS_PER_CAPTURE_POINT];
-	int i, j, val;
+	unsigned long val;
+	int i, j;
 
 	if (arm_smmu_power_on(smmu->pwr) || arm_smmu_power_on(tbu->pwr))
 		return IRQ_NONE;
