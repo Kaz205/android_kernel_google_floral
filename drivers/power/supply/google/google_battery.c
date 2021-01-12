@@ -4226,7 +4226,9 @@ static const struct attribute_group batt_attr_grp = {
 
 static int batt_init_fs(struct batt_drv *batt_drv)
 {
+#ifdef CONFIG_DEBUG_FS
 	struct dentry *de = NULL;
+#endif
 	int ret;
 
 	ret = sysfs_create_group(&batt_drv->psy->dev.kobj, &batt_attr_grp);
