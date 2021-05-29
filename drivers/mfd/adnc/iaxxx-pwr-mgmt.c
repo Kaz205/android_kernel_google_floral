@@ -262,7 +262,7 @@ chip_woken_up:
 			__func__);
 	}
 
-	dev_info(priv->dev, "%s() Success\n", __func__);
+	dev_dbg(priv->dev, "%s() Success\n", __func__);
 	return 0;
 
 chip_recovery:
@@ -289,7 +289,7 @@ static int iaxxx_check_and_powerdown_cores(struct iaxxx_priv *priv,
 	/* Check if SSP, DMX or HMD processor is active */
 	proc_active = proc_active & IAXXX_PROC_STATUS_MASK;
 	if (proc_active)
-		dev_info(priv->dev, "Proc status 0x%x\n", proc_active);
+		dev_dbg(priv->dev, "Proc status 0x%x\n", proc_active);
 	else {
 		*proc_status = 0;
 		return 0;
@@ -512,12 +512,12 @@ int iaxxx_suspend_chip(struct iaxxx_priv *priv)
 				&status);
 
 		priv->iaxxx_state->power_state = IAXXX_OPTIMAL_MODE;
-		dev_info(priv->dev, "%s() chip put into optimal power mode\n",
+		dev_dbg(priv->dev, "%s() chip put into optimal power mode\n",
 								__func__);
 	}
 	test_and_clear_bit(IAXXX_FLG_CHIP_WAKEUP_HOST0,
 						&priv->flags);
-	dev_info(priv->dev, "%s() Success\n", __func__);
+	dev_dbg(priv->dev, "%s() Success\n", __func__);
 
 	return 0;
 
