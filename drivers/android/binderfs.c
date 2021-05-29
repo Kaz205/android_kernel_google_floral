@@ -154,7 +154,6 @@ static int binderfs_binder_device_create(struct inode *ref_inode,
 	if (!name)
 		goto err;
 
-	refcount_set(&device->ref, 1);
 	device->binderfs_inode = inode;
 	device->context.binder_context_mgr_uid = INVALID_UID;
 	device->context.name = name;
@@ -258,10 +257,8 @@ static void binderfs_evict_inode(struct inode *inode)
 	ida_remove(&binderfs_minors, device->miscdev.minor);
 	mutex_unlock(&binderfs_minors_mutex);
 
-	if (refcount_dec_and_test(&device->ref)) {
-		kfree(device->context.name);
-		kfree(device);
-	}
+	kfree(device->context.name);
+	kfree(device);
 }
 
 /**
@@ -431,7 +428,7 @@ static int binderfs_binder_ctl_create(struct super_block *sb)
 	/* Reserve a new minor number for the new device. */
 	mutex_lock(&binderfs_minors_mutex);
 	minor = ida_simple_get(&binderfs_minors, 0,
-			      use_reserve ? BINDERFS_MAX_MINOR + 1:
+			      use_reserve ? BINDERFS_MAX_MINOR  + 1:
 					    BINDERFS_MAX_MINOR_CAPPED + 1,
 			      GFP_KERNEL);
 	mutex_unlock(&binderfs_minors_mutex);
@@ -448,7 +445,6 @@ static int binderfs_binder_ctl_create(struct super_block *sb)
 	inode->i_uid = info->root_uid;
 	inode->i_gid = info->root_gid;
 
-	refcount_set(&device->ref, 1);
 	device->binderfs_inode = inode;
 	device->miscdev.minor = minor;
 
