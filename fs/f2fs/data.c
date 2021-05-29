@@ -474,6 +474,7 @@ submit_io:
 	submit_bio(bio);
 }
 
+#ifdef DEBUG
 static void __f2fs_submit_read_bio(struct f2fs_sb_info *sbi,
 				struct bio *bio, enum page_type type)
 {
@@ -499,6 +500,13 @@ static void __f2fs_submit_read_bio(struct f2fs_sb_info *sbi,
 	}
 	__submit_bio(sbi, bio, type);
 }
+#else
+static void __f2fs_submit_read_bio(struct f2fs_sb_info *sbi,
+				struct bio *bio, enum page_type type)
+{
+	__submit_bio(sbi, bio, type);
+}
+#endif
 
 void f2fs_submit_bio(struct f2fs_sb_info *sbi,
 				struct bio *bio, enum page_type type)
