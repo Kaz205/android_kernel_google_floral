@@ -94,7 +94,7 @@ int iaxxx_event_handler(struct iaxxx_priv *priv, struct iaxxx_event *evt)
 
 	if (evt->event_src == IAXXX_CM4_CTRL_MGR_SRC_ID
 			&& evt->event_id == IAXXX_HOST0_WAKEUP_EVENT_ID) {
-		dev_info(dev, "FW chip wakeup event %s: src:0x%.04x\n",
+		dev_dbg(dev, "FW chip wakeup event %s: src:0x%.04x\n",
 						__func__, evt->event_src);
 		return ret;
 	}
