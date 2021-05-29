@@ -1577,14 +1577,14 @@ static ssize_t led_laser_enable_store(struct device *dev,
 		if (ctrl->type == safety_ic_owner) {
 			lm36011_disable_gpio_irq(dev);
 			cam_req_mgr_update_safety_ic_status(NO_ERROR);
-			dev_info(ctrl->soc_info.dev,
+			dev_dbg(ctrl->soc_info.dev,
 				"disable safety ic function, safety_ic_owner: %d",
 				safety_ic_owner);
 		}
 		mutex_unlock(&lm36011_mutex);
 		rc = lm36011_power_down(ctrl);
 		if (rc == 0)
-			dev_info(dev, "Laser disabled");
+			dev_dbg(dev, "Laser disabled");
 	}
 	ctrl->silego.vcsel_fault_count = 0;
 	ctrl->silego.is_vcsel_fault = false;

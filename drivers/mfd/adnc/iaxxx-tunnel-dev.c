@@ -470,7 +470,7 @@ static void adjust_tunnels(struct iaxxx_tunnel_data *t_intf_priv,
 		if (new & pos) {
 			if (iaxxx_tunnel_src_list_find_endpoint_node(
 				t_intf_priv, id, &tnl_src_node)) {
-				pr_notice("setup tnl%d, src%x, mode%s, enc%s\n",
+				pr_debug("setup tnl%d, src%x, mode%s, enc%s\n",
 					id,
 					tnl_src_node.tnl_ep.tunlSrc & 0xffff,
 					(tnl_src_node.tnl_ep.tunlMode
@@ -506,7 +506,7 @@ static void adjust_tunnels(struct iaxxx_tunnel_data *t_intf_priv,
 				}
 			}
 		} else {
-			pr_notice("terminate tunnel %d\n", id);
+			pr_debug("terminate tunnel %d\n", id);
 			if (iaxxx_tunnel_terminate_hw(priv, id))
 				pr_err("iaxxx_tunnel_terminate failed\n");
 
@@ -719,7 +719,7 @@ static int producer_thread(void *arg)
 					PRODUCER_MAX_WAIT_TIME_US);
 			continue;
 		}
-		pr_info("%s: producer thread wait for start\n", __func__);
+		pr_debug("%s: producer thread wait for start\n", __func__);
 
 		if (atomic_read(&t_intf_priv->kthread_suspend) ==
 			IAXXX_KTHREAD_RUN) {
@@ -1038,7 +1038,7 @@ int iaxxx_tunnel_setup(struct iaxxx_tunnel_client *client, uint32_t src,
 
 	set_bit(id, &client->tid_flag);
 	if (atomic_inc_return(&t_intf_priv->tunnel_ref_cnt[id]) == 1) {
-		pr_err("%s id found %d ref count :%d\n",
+		pr_debug("%s id found %d ref count :%d\n",
 			__func__, id,
 			atomic_read(&t_intf_priv->tunnel_ref_cnt[id]));
 		set_bit(id, &t_intf_priv->flags);
