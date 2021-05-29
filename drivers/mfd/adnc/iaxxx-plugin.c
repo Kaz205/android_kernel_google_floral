@@ -1638,7 +1638,7 @@ static int iaxxx_download_pkg(struct iaxxx_priv *priv,
 	if (file_section.length == 0) {
 		uint32_t checksum = (sum2 << 16) | sum1;
 
-		dev_info(dev, "Expected checksum = 0x%.08X\n", checksum);
+		dev_dbg(dev, "Expected checksum = 0x%.08X\n", checksum);
 		if (checksum != file_section.start_address) {
 			rc = -EINVAL;
 			dev_err(dev, "%s(): mismatch 0x%.08X != 0x%.08X\n",
@@ -1741,13 +1741,13 @@ int iaxxx_package_load(struct device *dev, const char *pkg_name,
 	struct iaxxx_pkg_data *pkg_data;
 	int rc = -EINVAL;
 
-	dev_info(dev, "%s() pkg_id:%u\n", __func__, pkg_id);
+	dev_dbg(dev, "%s() pkg_id:%u\n", __func__, pkg_id);
 
 	if (!pkg_name) {
 		dev_err(dev, "%s() Package name is NULL\n", __func__);
 		return -EINVAL;
 	}
-	dev_info(dev, "Download Package %s\n", pkg_name);
+	dev_dbg(dev, "Download Package %s\n", pkg_name);
 
 	pkg_id &= IAXXX_PKG_ID_MASK;
 	/* protect this plugin operation */
@@ -1831,7 +1831,7 @@ int iaxxx_package_unload(struct device *dev,
 	}
 
 	/* Remove package node from the list */
-	dev_info(dev, "%s() pkg_id:0x%x proc_id:%u\n", __func__,
+	dev_dbg(dev, "%s() pkg_id:0x%x proc_id:%u\n", __func__,
 							pkg_id, proc_id);
 	list_del(&pkg_data->pkg_node);
 	kvfree(pkg_data);
