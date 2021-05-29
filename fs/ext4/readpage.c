@@ -224,6 +224,7 @@ static inline loff_t ext4_readpage_limit(struct inode *inode)
 	return i_size_read(inode);
 }
 
+#ifdef DEBUG
 static void
 ext4_submit_bio_read(struct bio *bio)
 {
@@ -247,6 +248,13 @@ ext4_submit_bio_read(struct bio *bio)
 	}
 	submit_bio(bio);
 }
+#else
+static void
+ext4_submit_bio_read(struct bio *bio)
+{
+	submit_bio(bio);
+}
+#endif
 
 int ext4_mpage_readpages(struct address_space *mapping,
 			 struct list_head *pages, struct page *page,
