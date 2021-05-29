@@ -666,6 +666,8 @@ static int prefer_high_cap_write(struct cgroup_subsys_state *css,
 				 struct cftype *cft, u64 prefer_high_cap)
 {
 	struct schedtune *st = css_st(css);
+	return 0;
+
 	st->prefer_high_cap = !!prefer_high_cap;
 
 	return 0;
