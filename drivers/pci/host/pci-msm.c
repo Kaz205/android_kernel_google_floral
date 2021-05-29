@@ -4147,7 +4147,7 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 					BIT(MSM_PCIE_INT_EVT_MSI_6) |
 					BIT(MSM_PCIE_INT_EVT_MSI_7));
 
-		PCIE_INFO(dev, "PCIe: RC%d: PCIE20_PARF_INT_ALL_MASK: 0x%x\n",
+		PCIE_DBG(dev, "PCIe: RC%d: PCIE20_PARF_INT_ALL_MASK: 0x%x\n",
 			dev->rc_idx,
 			readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_MASK));
 	}
@@ -4192,7 +4192,7 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 		dev->rc_idx, retries);
 
 	if (pcie_phy_is_ready(dev))
-		PCIE_INFO(dev, "PCIe RC%d PHY is ready!\n", dev->rc_idx);
+		PCIE_DBG(dev, "PCIe RC%d PHY is ready!\n", dev->rc_idx);
 	else {
 		PCIE_ERR(dev, "PCIe PHY RC%d failed to come up!\n",
 			dev->rc_idx);
@@ -4229,7 +4229,7 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 		PCIE_GEN3_RELATED, BIT(0), 0);
 
 	if (dev->eq_en) {
-		PCIE_INFO(dev, "PCIe: RC%d: enable equalization\n",
+		PCIE_DBG(dev, "PCIe: RC%d: enable equalization\n",
 			  dev->rc_idx);
 		msm_pcie_write_reg_field(dev->dm_core,
 			PCIE_GEN3_RELATED, BIT(16), 0);
@@ -4288,7 +4288,7 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 		msm_pcie_confirm_linkup(dev, false, false, NULL)) {
 		PCIE_DBG(dev, "Link is up after %d checkings\n",
 			link_check_count);
-		PCIE_INFO(dev, "PCIe RC%d link initialized\n", dev->rc_idx);
+		PCIE_DBG(dev, "PCIe RC%d link initialized\n", dev->rc_idx);
 	} else {
 #if !IS_ENABLED(CONFIG_MFD_ABC_PCIE)
 		PCIE_INFO(dev, "PCIe: Assert the reset of endpoint of RC%d.\n",
