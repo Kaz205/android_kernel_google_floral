@@ -238,31 +238,6 @@ struct bar_mapping {
 	size_t mapping_size;
 	void __iomem *bar_vaddr;
 };
-/* Non-Preferred APIs: Do not use unless exception is granted by maintainer
- * The get/put inbound_iatu interfaces request/release 1 free iATU without
- * creating any bar mapping.
- * The map/unmap iATU interfaces create the AB DRAM to BAR mapping on using
- * the given iATU region specified in the bar_mapping struct.
- */
-int abc_pcie_get_inbound_iatu(struct device *dev, struct device *owner);
-int abc_pcie_put_inbound_iatu(struct device *dev, struct device *owner,
-		int iatu_id);
-int abc_pcie_map_iatu(struct device *dev, struct device *owner, uint32_t bar,
-		size_t size, uint64_t ab_paddr, struct bar_mapping *mapping);
-int abc_pcie_unmap_iatu(struct device *dev, struct device *owner,
-		struct bar_mapping *mapping);
-
-/* Preferred API to map/unmap bar region: the APIs will automatically find
- * a free iATU region and map the AB Dram region to the BAR region.
- */
-int abc_pcie_map_bar_region(struct device *dev, struct device *owner,
-		uint32_t bar, size_t size, uint64_t ab_paddr,
-		struct bar_mapping *mapping);
-int abc_pcie_unmap_bar_region(struct device *dev, struct device *owner,
-		struct bar_mapping *mapping);
-
-void ab_pcie_register_dma_device_ops(struct abc_pcie_dma_ops *dma_device_ops);
-void ab_pcie_unregister_dma_device_ops(void);
 
 struct config_write {
 	u32 offset;
@@ -301,11 +276,6 @@ struct abc_pcie_pm_ctrl {
 	int l1_en;
 };
 
-int dma_sblk_start(uint8_t chan, enum dma_data_direction dir,
-		   struct dma_element_t *blk);
-int dma_mblk_start(uint8_t chan, enum dma_data_direction dir,
-			    phys_addr_t *start_addr, int num_channels);
-
 #define ABC_PCIE_CONFIG_READ        _IOW('P', 0x1, struct config_read)
 #define ABC_PCIE_CONFIG_WRITE       _IOW('P', 0x2, struct config_write)
 #define ABC_PCIE_SET_IB_IATU        _IOW('P', 0x3, struct inb_region)
@@ -324,6 +294,36 @@ int dma_mblk_start(uint8_t chan, enum dma_data_direction dir,
 
 #define ABC_PCIE_CACHE_UNKNOWN		0xFFFFFFFF
 
+#ifdef CONFIG_MFD_ABC_PCIE
+/* Non-Preferred APIs: Do not use unless exception is granted by maintainer
+ * The get/put inbound_iatu interfaces request/release 1 free iATU without
+ * creating any bar mapping.
+ * The map/unmap iATU interfaces create the AB DRAM to BAR mapping on using
+ * the given iATU region specified in the bar_mapping struct.
+ */
+int abc_pcie_get_inbound_iatu(struct device *dev, struct device *owner);
+int abc_pcie_put_inbound_iatu(struct device *dev, struct device *owner,
+		int iatu_id);
+int abc_pcie_map_iatu(struct device *dev, struct device *owner, uint32_t bar,
+		size_t size, uint64_t ab_paddr, struct bar_mapping *mapping);
+int abc_pcie_unmap_iatu(struct device *dev, struct device *owner,
+		struct bar_mapping *mapping);
+
+/* Preferred API to map/unmap bar region: the APIs will automatically find
+ * a free iATU region and map the AB Dram region to the BAR region.
+ */
+int abc_pcie_map_bar_region(struct device *dev, struct device *owner,
+		uint32_t bar, size_t size, uint64_t ab_paddr,
+		struct bar_mapping *mapping);
+int abc_pcie_unmap_bar_region(struct device *dev, struct device *owner,
+		struct bar_mapping *mapping);
+
+void ab_pcie_register_dma_device_ops(struct abc_pcie_dma_ops *dma_device_ops);
+void ab_pcie_unregister_dma_device_ops(void);
+int dma_sblk_start(uint8_t chan, enum dma_data_direction dir,
+		   struct dma_element_t *blk);
+int dma_mblk_start(uint8_t chan, enum dma_data_direction dir,
+			    phys_addr_t *start_addr, int num_channels);
 int abc_pcie_config_read(u32 offset, u32 len, u32 *data);
 int abc_pcie_config_write(u32 offset, u32 len, u32 data);
 int aon_config_read(u32 offset, u32 len, u32 *data);
@@ -351,4 +351,100 @@ void abc_pcie_set_linkstate(u32 target_linkstate);
 void abc_set_l1_entry_delay(int delay);
 int abc_set_pcie_link_l1(bool enabled);
 bool abc_pcie_enumerated(void);
+#else
+static inline int abc_pcie_get_inbound_iatu(struct device *dev, struct device *owner)
+{
+	return 0;
+}
+static inline int abc_pcie_put_inbound_iatu(struct device *dev, struct device *owner,
+		int iatu_id)
+{
+	return 0;
+}
+static inline int abc_pcie_map_iatu(struct device *dev, struct device *owner, uint32_t bar,
+		size_t size, uint64_t ab_paddr, struct bar_mapping *mapping)
+{
+	return 0;
+}
+static inline int abc_pcie_unmap_iatu(struct device *dev, struct device *owner,
+		struct bar_mapping *mapping)
+{
+	return 0;
+}
+static inline int abc_pcie_map_bar_region(struct device *dev, struct device *owner,
+		uint32_t bar, size_t size, uint64_t ab_paddr,
+		struct bar_mapping *mapping)
+{
+	return 0;
+}
+static inline int abc_pcie_unmap_bar_region(struct device *dev, struct device *owner,
+		struct bar_mapping *mapping)
+{
+	return 0;
+}
+static inline int dma_sblk_start(uint8_t chan, enum dma_data_direction dir,
+		   struct dma_element_t *blk)
+{
+	return 0;
+}
+static inline int abc_pcie_config_read(u32 offset, u32 len, u32 *data)
+{
+	return 0;
+}
+static inline int abc_pcie_config_write(u32 offset, u32 len, u32 data)
+{
+	return 0;
+}
+static inline int ipu_config_read(u32 offset, u32 len, u32 *data)
+{
+	return 0;
+}
+static inline int ipu_config_write(u32 offset, u32 len, u32 data)
+{
+	return 0;
+}
+static inline int memory_config_read(u32 offset, u32 len, u32 *data)
+{
+	return 0;
+}
+static inline int memory_config_write(u32 offset, u32 len, u32 data)
+{
+	return 0;
+}
+static inline int abc_reg_dma_irq_callback(irq_dma_cb_t dma_cb, int dma_chan)
+{
+	return 0;
+}
+static inline int abc_reg_irq_callback(irq_cb_t sys_cb, int irq_no, void *data)
+{
+	return 0;
+}
+static inline int abc_reg_notifier_callback(struct notifier_block *nb)
+{
+	return 0;
+}
+static inline void *abc_alloc_coherent(size_t size, dma_addr_t *dma_addr)
+{
+	return NULL;
+}
+static inline void abc_free_coherent(size_t size, void *cpu_addr, dma_addr_t dma_addr)
+{
+}
+static inline dma_addr_t abc_dma_map_single(void *ptr,  size_t size,
+		enum dma_data_direction dir)
+{
+	return 0;
+}
+static inline void abc_dma_unmap_single(dma_addr_t addr,  size_t size,
+		enum dma_data_direction dir)
+{
+}
+static inline void abc_pcie_set_linkstate(u32 target_linkstate)
+{
+}
+static inline void abc_set_l1_entry_delay(int delay)
+{
+}
+#endif /* CONFIG_MFD_ABC_PCIE */
+
 #endif
