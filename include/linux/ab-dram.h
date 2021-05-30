@@ -23,6 +23,13 @@ struct dma_buf *ab_dram_alloc_dma_buf_kernel(size_t len);
 void ab_dram_free_dma_buf_kernel(struct dma_buf *dmabuf);
 
 dma_addr_t ab_dram_get_dma_buf_paddr(struct dma_buf *dmabuf);
+#ifdef CONFIG_AIRBRUSH_DRAM
 bool is_ab_dram_dma_buf(struct dma_buf *dmabuf);
+#else
+static inline bool is_ab_dram_dma_buf(struct dma_buf *dmabuf)
+{
+    return false;
+}
+#endif
 
 #endif /* __AB_DRAM_H__ */
