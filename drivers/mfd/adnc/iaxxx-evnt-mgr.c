@@ -107,7 +107,7 @@ int iaxxx_event_handler(struct iaxxx_priv *priv, struct iaxxx_event *evt)
 		return ret;
 	}
 
-	dev_info(dev,
+	dev_dbg(dev,
 		"%s:EVENT src:0x%04x id:0x%04x src_opq=0x%08x dst_opq=0x%08x\n",
 		__func__, evt->event_src, evt->event_id,
 		evt->src_opaque, evt->dst_opaque);
