@@ -11,7 +11,7 @@ ifeq ($(CONFIG_BOARD_SUNFISH),y)
 obj-$(CONFIG_SPECTRA_CAMERA) += camera/
 endif #CONFIG_BOARD_SUNFISH
 ifeq ($(CONFIG_BOARD_FLORAL),y)
-obj-$(CONFIG_SPECTRA_CAMERA) += camera_floral/
+obj-$(CONFIG_SPECTRA_CAMERA) += camera/
 endif #CONFIG_BOARD_FLORAL
 obj-$(CONFIG_MSM_AIS) += ais/
 obj-$(CONFIG_TSPP) += broadcast/
