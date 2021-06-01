@@ -1965,11 +1965,11 @@ struct security_hook_heads {
 	struct hlist_head bpf_prog_free_security;
 #endif /* CONFIG_BPF_SYSCALL */
 #ifdef CONFIG_PERF_EVENTS
-	struct list_head perf_event_open;
-	struct list_head perf_event_alloc;
-	struct list_head perf_event_free;
-	struct list_head perf_event_read;
-	struct list_head perf_event_write;
+	struct hlist_head perf_event_open;
+	struct hlist_head perf_event_alloc;
+	struct hlist_head perf_event_free;
+	struct hlist_head perf_event_read;
+	struct hlist_head perf_event_write;
 #endif
 } __randomize_layout;
 
