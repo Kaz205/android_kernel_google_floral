@@ -10,8 +10,11 @@
  * ARMv8-a, AArch64, Advanced SIMD, unaligned accesses.
  * Not MTE compatible.
  */
+ 
+#include <linux/linkage.h>
+#include <asm/assembler.h>
 
-#include "../asmdefs.h"
+#define L(l) .L ## l
 
 #define srcin	x0
 #define len	x0
@@ -45,15 +48,7 @@
 #define REP8_01 0x0101010101010101
 #define REP8_7f 0x7f7f7f7f7f7f7f7f
 
-/* To test the page crossing code path more thoroughly, compile with
-   -DTEST_PAGE_CROSS - this will force all calls through the slower
-   entry path.  This option is not intended for production use.  */
-
-#ifdef TEST_PAGE_CROSS
-# define MIN_PAGE_SIZE 32
-#else
 # define MIN_PAGE_SIZE 4096
-#endif
 
 /* Core algorithm:
 
@@ -73,8 +68,8 @@
    and ignore any characters before the string.  If it contains a NUL
    character, return the length, if not, continue in the main loop.  */
 
-ENTRY (__strlen_aarch64)
-	PTR_ARG (0)
+.p2align 6
+WEAK(strlen)
 	and	tmp1, srcin, MIN_PAGE_SIZE - 1
 	cmp	tmp1, MIN_PAGE_SIZE - 32
 	b.hi	L(page_cross)
@@ -83,7 +78,7 @@ ENTRY (__strlen_aarch64)
 	ldp	data1, data2, [srcin]
 	mov	zeroones, REP8_01
 
-#ifdef __AARCH64EB__
+#ifdef CONFIG_CPU_BIG_ENDIAN
 	/* For big-endian, carry propagation (if the final byte in the
 	   string is 0x01) means we cannot use has_nul1/2 directly.
 	   Since we expect strings to be small and early-exit,
@@ -114,7 +109,7 @@ ENTRY (__strlen_aarch64)
 	/* Look for a NUL byte at offset 16..31 in the string.  */
 L(bytes16_31):
 	ldp	data1, data2, [srcin, 16]
-#ifdef __AARCH64EB__
+#ifdef CONFIG_CPU_BIG_ENDIAN
 	rev	data1, data1
 	rev	data2, data2
 #endif
@@ -159,14 +154,14 @@ L(loop):
 	add	len, len, 16
 1:
 	/* Generate a bitmask and compute correct byte offset.  */
-#ifdef __AARCH64EB__
+#ifdef CONFIG_CPU_BIG_ENDIAN
 	bic	maskv.8h, 0xf0
 #else
 	bic	maskv.8h, 0x0f, lsl 8
 #endif
 	umaxp	maskv.16b, maskv.16b, maskv.16b
 	fmov	synd, maskd
-#ifndef __AARCH64EB__
+#ifndef CONFIG_CPU_BIG_ENDIAN
 	rbit	synd, synd
 #endif
 	clz	tmp, synd
@@ -197,4 +192,4 @@ L(page_cross):
 	lsr	len, len, 1
 	ret
 
-END (__strlen_aarch64)
+ENDPIPROC(strlen)
