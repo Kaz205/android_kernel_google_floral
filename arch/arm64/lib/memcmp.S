@@ -9,7 +9,10 @@
  * ARMv8-a, AArch64, unaligned accesses.
  */
 
-#include "../asmdefs.h"
+#include <linux/linkage.h>
+#include <asm/assembler.h>
+
+#define L(l) .L ## l
 
 /* Parameters and result.  */
 #define src1		x0
@@ -27,10 +30,8 @@
 #define tmp1		x7
 #define tmp2		x8
 
-ENTRY (__memcmp_aarch64)
-	PTR_ARG (0)
-	PTR_ARG (1)
-	SIZE_ARG (2)
+.p2align 6
+WEAK(memcmp)
 	subs	limit, limit, 8
 	b.lo	L(less8)
 
@@ -101,7 +102,7 @@ L(last_bytes):
 
 	/* Compare data bytes and set return value to 0, -1 or 1.  */
 L(return):
-#ifndef __AARCH64EB__
+#ifndef CONFIG_CPU_BIG_ENDIAN
 	rev	data1, data1
 	rev	data2, data2
 #endif
@@ -133,5 +134,5 @@ L(byte_loop):
 	sub	result, data1w, data2w
 	ret
 
-END (__memcmp_aarch64)
+ENDPIPROC(memcmp)
 
