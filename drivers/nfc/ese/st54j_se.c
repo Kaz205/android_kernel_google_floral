@@ -17,12 +17,6 @@
 #include <linux/spi/spi.h>
 #include <linux/uaccess.h>
 
-#include <linux/types.h>
-#include <linux/version.h>
-
-#include <linux/semaphore.h>
-#include <linux/completion.h>
-
 #include <linux/ioctl.h>
 #include <linux/miscdevice.h>
 #include <linux/spi/spi-geni-qcom.h>
