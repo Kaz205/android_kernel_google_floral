@@ -20,7 +20,6 @@
 #include <linux/ioctl.h>
 #include <linux/miscdevice.h>
 #include <linux/spi/spi-geni-qcom.h>
-#include <uapi/linux/st54j_se.h>
 
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
@@ -28,6 +27,9 @@
 
 #define DRIVER_VERSION "1.1.4"
 #define ST54_MAX_BUF 258U
+
+#define ST54J_SE_MAGIC	0xE5
+#define ST54J_SE_RESET            _IOR(ST54J_SE_MAGIC, 0x01, unsigned int)
 
 struct st54j_se_dev {
 	struct spi_device	*spi;
