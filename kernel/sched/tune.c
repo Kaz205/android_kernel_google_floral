@@ -596,6 +596,7 @@ int schedtune_prefer_idle(struct task_struct *p)
 	return prefer_idle;
 }
 
+#if sched_feat(EAS_PREFER_IDLE)
 static u64
 prefer_idle_read(struct cgroup_subsys_state *css, struct cftype *cft)
 {
@@ -613,6 +614,20 @@ prefer_idle_write(struct cgroup_subsys_state *css, struct cftype *cft,
 
 	return 0;
 }
+#else
+static u64
+prefer_idle_read(struct cgroup_subsys_state *css, struct cftype *cft)
+{
+	return 0;
+}
+
+static int
+prefer_idle_write(struct cgroup_subsys_state *css, struct cftype *cft,
+	    u64 prefer_idle)
+{
+	return 0;
+}
+#endif
 
 static s64
 boost_read(struct cgroup_subsys_state *css, struct cftype *cft)
