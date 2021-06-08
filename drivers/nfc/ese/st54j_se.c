@@ -48,7 +48,7 @@ struct st54j_se_dev {
 static long st54j_se_ioctl(struct file *filp, unsigned int cmd,
 			   unsigned long arg)
 {
-	int r = 0;
+	int ret = 0;
 	struct st54j_se_dev *ese_dev = filp->private_data;
 	mutex_lock(&ese_dev->mutex);
 	dev_dbg(&ese_dev->spi->dev, "%s: enter, cmd=%u\n", __func__, cmd);
@@ -63,10 +63,15 @@ static long st54j_se_ioctl(struct file *filp, unsigned int cmd,
 			gpiod_set_value(ese_dev->gpiod_se_reset, 1);
 			dev_info(&ese_dev->spi->dev,
 				 "%s sent Reset request on eSE\n", __func__);
+		} else {
+			ret = -ENODEV;
+			dev_err(&ese_dev->spi->dev,
+			"%s : Unable to request esereset %d \n",
+			__func__, IS_ERR(ese_dev->gpiod_se_reset));
 		}
 	}
 	mutex_unlock(&ese_dev->mutex);
-	return r;
+	return ret;
 }
 
 static int st54j_se_open(struct inode *inode, struct file *filp)
