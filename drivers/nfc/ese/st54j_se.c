@@ -190,7 +190,6 @@ err:
 }
 
 static const struct file_operations st54j_se_dev_fops = {
-	.owner = THIS_MODULE,
 	.llseek = no_llseek,
 	.read = st54j_se_read,
 	.write = st54j_se_write,
@@ -263,22 +262,10 @@ err:
 	return ret;
 }
 
-static const struct of_device_id st54j_se_match_table[] = {
-	{ .compatible = "st,st54j_se" },
-	{}
-};
-MODULE_DEVICE_TABLE(of, st54j_se_match_table);
-
 static struct spi_driver st54j_se_driver = {
 	.driver = {
 		.name = "st54j_se",
-		.of_match_table = st54j_se_match_table,
 	},
 	.probe = st54j_se_probe,
 };
 module_spi_driver(st54j_se_driver);
-
-MODULE_DESCRIPTION("ST54J eSE driver");
-MODULE_ALIAS("spi:st54j_se");
-MODULE_AUTHOR("ST Microelectronics");
-MODULE_LICENSE("GPL");
