@@ -267,27 +267,6 @@ err:
 	return ret;
 }
 
-static int st54j_se_remove(struct spi_device *spi)
-{
-	struct st54j_se_dev *ese_dev = spi_get_drvdata(spi);
-	struct spi_geni_qcom_ctrl_data *spi_param;
-	int ret = 0;
-	spi_param = ese_dev->spi->controller_data;
-
-	if (!ese_dev) {
-		dev_err(&spi->dev, "%s: device doesn't exist anymore\n",
-			__func__);
-		ret = -ENODEV;
-		goto err;
-	}
-	misc_deregister(&ese_dev->device);
-	mutex_destroy(&ese_dev->mutex);
-	kfree(spi_param);
-	kfree(ese_dev);
-err:
-	return ret;
-}
-
 static const struct of_device_id st54j_se_match_table[] = {
 	{ .compatible = "st,st54j_se" },
 	{}
@@ -300,7 +279,6 @@ static struct spi_driver st54j_se_driver = {
 		.of_match_table = st54j_se_match_table,
 	},
 	.probe = st54j_se_probe,
-	.remove = st54j_se_remove,
 };
 module_spi_driver(st54j_se_driver);
 
