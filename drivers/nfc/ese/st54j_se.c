@@ -53,8 +53,7 @@ static long st54j_se_ioctl(struct file *filp, unsigned int cmd,
 	mutex_lock(&ese_dev->mutex);
 	dev_dbg(&ese_dev->spi->dev, "%s: enter, cmd=%u\n", __func__, cmd);
 
-	switch (cmd) {
-	case ST54J_SE_RESET:
+	if (cmd == ST54J_SE_RESET) {
 		dev_info(&ese_dev->spi->dev, "%s  Reset Request received!!\n",
 			 __func__);
 		if (!IS_ERR(ese_dev->gpiod_se_reset)) {
@@ -65,7 +64,6 @@ static long st54j_se_ioctl(struct file *filp, unsigned int cmd,
 			dev_info(&ese_dev->spi->dev,
 				 "%s sent Reset request on eSE\n", __func__);
 		}
-		break;
 	}
 	mutex_unlock(&ese_dev->mutex);
 	return r;
