@@ -44,7 +44,7 @@ target_if_ftm_process_utf_event(ol_scn_t sc, uint8_t *event_buf, uint32_t len)
 	struct wlan_lmac_if_ftm_rx_ops *ftm_rx_ops;
 	QDF_STATUS status = QDF_STATUS_E_FAILURE;
 	uint32_t pdev_id;
-	struct wmi_unified *wmi_handle;
+	wmi_unified_t wmi_handle;
 
 	psoc = target_if_get_psoc_from_scn_hdl(sc);
 	if (!psoc) {
