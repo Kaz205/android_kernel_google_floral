@@ -213,11 +213,11 @@ static int st54j_se_probe(struct spi_device *spi)
 		return -EINVAL;
 	}
 
-	ese_dev = devm_kzalloc(dev, sizeof(*ese_dev), GFP_KERNEL);
+	ese_dev = devm_kmalloc(dev, sizeof(*ese_dev), GFP_KERNEL);
 	if (ese_dev == NULL)
 		return -ENOMEM;
 
-	spi_param = devm_kzalloc(dev, sizeof(spi_param), GFP_KERNEL);
+	spi_param = devm_kmalloc(dev, sizeof(spi_param), GFP_KERNEL);
 	if (spi_param == NULL) {
 		return -ENOMEM;
 	}
