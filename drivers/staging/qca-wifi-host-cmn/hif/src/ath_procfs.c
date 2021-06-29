@@ -234,9 +234,9 @@ void athdiag_procfs_remove(void)
 	}
 }
 #else
-int athdiag_procfs_init(void *scn)
+static inline int athdiag_procfs_init(void *scn)
 {
 	return 0;
 }
-void athdiag_procfs_remove(void) {}
+static inline void athdiag_procfs_remove(void) {}
 #endif

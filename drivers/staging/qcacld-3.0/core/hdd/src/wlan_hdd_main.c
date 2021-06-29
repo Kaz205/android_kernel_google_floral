@@ -5785,16 +5785,12 @@ QDF_STATUS hdd_stop_adapter_ext(struct hdd_context *hdd_ctx,
 		if (QDF_IS_STATUS_ERROR(qdf_ret_status))
 			hdd_err("Cannot flush PMKIDCache");
 
-#ifdef WLAN_OPEN_SOURCE
 		cancel_work_sync(&adapter->ipv4_notifier_work);
-#endif
 
 		hdd_deregister_tx_flow_control(adapter);
 
 #ifdef WLAN_NS_OFFLOAD
-#ifdef WLAN_OPEN_SOURCE
 		cancel_work_sync(&adapter->ipv6_notifier_work);
-#endif
 #endif
 
 		if (adapter->device_mode == QDF_STA_MODE)
@@ -5948,14 +5944,10 @@ QDF_STATUS hdd_stop_adapter_ext(struct hdd_context *hdd_ctx,
 		if (policy_mgr_is_dnsc_set(adapter->vdev))
 			wlan_hdd_send_avoid_freq_for_dnbs(hdd_ctx, 0);
 
-#ifdef WLAN_OPEN_SOURCE
 		cancel_work_sync(&adapter->ipv4_notifier_work);
-#endif
 
 #ifdef WLAN_NS_OFFLOAD
-#ifdef WLAN_OPEN_SOURCE
 		cancel_work_sync(&adapter->ipv6_notifier_work);
-#endif
 #endif
 
 		hdd_vdev_destroy(adapter);
