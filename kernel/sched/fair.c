@@ -194,42 +194,13 @@ unsigned int capacity_margin				= 1280;
 
 /* Migration margins */
 unsigned int sysctl_sched_capacity_margin_up[MAX_MARGIN_LEVELS] = {
-	[0 ... MAX_MARGIN_LEVELS - 1] = 1280
-}; /* ~20% margin */
+			[0 ... MAX_MARGIN_LEVELS-1] = 1078}; /* ~5% margin */
 unsigned int sysctl_sched_capacity_margin_down[MAX_MARGIN_LEVELS] = {
-	[0 ... MAX_MARGIN_LEVELS - 1] = 1280
-}; /* ~20% margin */
-unsigned int sysctl_sched_capacity_margin_up_boosted[MAX_MARGIN_LEVELS] = {
-	[0 ... MAX_MARGIN_LEVELS-1] = 1280
-}; /* ~20% margin */
-unsigned int sysctl_sched_capacity_margin_down_boosted[MAX_MARGIN_LEVELS] = {
-	1575, 1280
-}; /* ~35 margin for big, ~20% margin for big+ */
-
-#if NR_CPUS == 8
+			[0 ... MAX_MARGIN_LEVELS-1] = 1205}; /* ~15% margin */
 unsigned int sched_capacity_margin_up[NR_CPUS] = {
-	1280, 1280, 1280, 1280, 1280, 1280, 1280, 1078
-}; /* ~20% margin for small and big, 5% for big+ */
+			[0 ... NR_CPUS-1] = 1078}; /* ~5% margin */
 unsigned int sched_capacity_margin_down[NR_CPUS] = {
-	[0 ... NR_CPUS-1] = 1280
-}; /* ~20% margin */
-unsigned int sched_capacity_margin_up_boosted[NR_CPUS] = {
-	1280, 1280, 1280, 1280, 1280, 1280, 1280, 1078
-}; /* ~20% margin for small and big, 5% for big+ */
-unsigned int sched_capacity_margin_down_boosted[NR_CPUS] = {
-	1280, 1280, 1280, 1280, 1575, 1575, 1575, 1280
-}; /* not used for small cores, ~35% margin for big, ~20% margin for big+ */
-#else
-unsigned int sched_capacity_margin_up[NR_CPUS] = {
-	[0 ... NR_CPUS-1] = 1280}; /* ~20% margin */
-unsigned int sched_capacity_margin_down[NR_CPUS] = {
-	[0 ... NR_CPUS-1] = 1280}; /* ~20% margin */
-unsigned int sched_capacity_margin_up_boosted[NR_CPUS] = {
-	[0 ... NR_CPUS-1] = 1280}; /* ~20% margin */
-unsigned int sched_capacity_margin_down_boosted[NR_CPUS] = {
-	[0 ... NR_CPUS-1] = 1280}; /* ~20% margin */
-#endif
-
+			[0 ... NR_CPUS-1] = 1205}; /* ~15% margin */
 
 #ifdef CONFIG_SCHED_WALT
 /* 1ms default for 20ms window size scaled to 1024 */
@@ -5891,17 +5862,9 @@ static inline bool
 cpu_is_in_target_set(struct task_struct *p, int cpu)
 {
 	struct root_domain *rd = cpu_rq(cpu)->rd;
-	int first_cpu, next_usable_cpu;
-
-	if (schedtune_prefer_high_cap(p)) {
-		first_cpu = rd->mid_cap_orig_cpu != -1 ? rd->mid_cap_orig_cpu :
-			    rd->max_cap_orig_cpu;
-
-	} else {
-		first_cpu = rd->min_cap_orig_cpu;
-	}
-
-	next_usable_cpu = cpumask_next(first_cpu - 1, &p->cpus_allowed);
+	int first_cpu = (schedtune_task_boost(p)) ?
+		rd->mid_cap_orig_cpu : rd->min_cap_orig_cpu;
+	int next_usable_cpu = cpumask_next(first_cpu - 1, &p->cpus_allowed);
 	return cpu >= next_usable_cpu || next_usable_cpu >= nr_cpu_ids;
 }
 
@@ -7421,15 +7384,9 @@ static inline bool task_fits_capacity(struct task_struct *p,
 	unsigned int margin;
 
 	if (capacity_orig_of(task_cpu(p)) > capacity_orig_of(cpu))
-		margin = schedtune_task_boost(p) > 0 &&
-			 !schedtune_prefer_high_cap(p) ?
-			sched_capacity_margin_down_boosted[task_cpu(p)] :
-			sched_capacity_margin_down[task_cpu(p)];
+		margin = sched_capacity_margin_down[task_cpu(p)];
 	else
-		margin = schedtune_task_boost(p) > 0 &&
-			 !schedtune_prefer_high_cap(p) ?
-			sched_capacity_margin_up_boosted[task_cpu(p)] :
-			sched_capacity_margin_up[task_cpu(p)];
+		margin = sched_capacity_margin_up[task_cpu(p)];
 
 	return capacity * 1024 > boosted_task_util(p) * margin;
 }
@@ -7536,8 +7493,7 @@ enum fastpaths {
 static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 				   bool boosted, bool sync_boost,
 				   bool prefer_idle,
-				   struct find_best_target_env *fbt_env,
-				   bool prefer_high_cap)
+				   struct find_best_target_env *fbt_env)
 {
 	unsigned long min_util = boosted_task_util(p);
 	unsigned long target_capacity = ULONG_MAX;
@@ -7571,15 +7527,15 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	 * energy efficient CPU candidate, thus requiring to minimise
 	 * target_capacity. For these cases target_capacity is already
 	 * initialized to ULONG_MAX.
-	 * However, for prefer_idle and prefer_high_cap tasks we look for a high
+	 * However, for prefer_idle and boosted tasks we look for a high
 	 * performance CPU, thus requiring to maximise target_capacity. In this
 	 * case we initialise target_capacity to 0.
 	 */
-	if (prefer_idle && prefer_high_cap)
+	if (prefer_idle && boosted)
 		target_capacity = 0;
 
 	/* Find start CPU based on boost value */
-	cpu = start_cpu(p, prefer_high_cap, sync_boost, fbt_env->rtg_target);
+	cpu = start_cpu(p, boosted, sync_boost, fbt_env->rtg_target);
 	if (cpu < 0)
 		return -1;
 
@@ -7717,24 +7673,25 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			 * tasks.
 			 */
 			if (prefer_idle) {
+
 				/*
 				 * Case A.1: IDLE CPU
 				 * Return the best IDLE CPU we find:
-				 * - for prefer_high_cap tasks: if the task fits in mid
+				 * - for boosted tasks: if the task fits in mid
 				 * cluster, prefer the first mid cluster cpu
 				 * due to cpuset design, then other mid cluster
 				 * cpus. Otherwise, choose max cluster cpu.
-				 * - for !prefer_high_cap tasks: the most energy
+				 * - for !boosted tasks: the most energy
 				 * efficient CPU (i.e. smallest capacity_orig)
 				 */
-				if (prefer_high_cap && mid_cap_orig_cpu != -1 &&
-				    best_idle_cpu == mid_cap_orig_cpu)
+				if (boosted && mid_cap_orig_cpu != -1 &&
+					best_idle_cpu == mid_cap_orig_cpu)
 					break;
 				if (idle_cpu(i)) {
-					if (prefer_high_cap &&
+					if (boosted &&
 					    capacity_orig < target_capacity)
 						continue;
-					if (!prefer_high_cap &&
+					if (!boosted &&
 					    capacity_orig > target_capacity)
 						continue;
 					if (capacity_orig == target_capacity &&
@@ -7907,27 +7864,26 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 		 * next cluster if they are higher in capacity. If we are
 		 * not in any kind of boost, we break.
 		 */
-		if (!prefer_idle && !prefer_high_cap &&
-		    (target_cpu != -1 || best_idle_cpu != -1) &&
-		    (fbt_env->placement_boost == SCHED_BOOST_NONE ||
-		     sched_boost() != FULL_THROTTLE_BOOST ||
-		     (fbt_env->placement_boost == SCHED_BOOST_ON_BIG &&
-		      !next_group_higher_cap)))
+		if (!prefer_idle && !boosted &&
+			(target_cpu != -1 || best_idle_cpu != -1) &&
+			(fbt_env->placement_boost == SCHED_BOOST_NONE ||
+			sched_boost() != FULL_THROTTLE_BOOST ||
+			(fbt_env->placement_boost == SCHED_BOOST_ON_BIG &&
+				!next_group_higher_cap)))
 			break;
 
 		/*
 		 * if we are in prefer_idle and have found an idle cpu,
-		 * break from searching more groups based on the stune.prefer_high_cap and
-		 * group cpu capacity. For !prefer_idle && prefer_high_cap case, don't
+		 * break from searching more groups based on the stune.boost and
+		 * group cpu capacity. For !prefer_idle && boosted case, don't
 		 * iterate lower capacity CPUs unless the task can't be
 		 * accommodated in the higher capacity CPUs.
 		 */
 		if ((prefer_idle && best_idle_cpu != -1) ||
-		    (prefer_high_cap &&
-		     (best_idle_cpu != -1 || target_cpu != -1))) {
-			if (prefer_high_cap) {
+		    (boosted && (best_idle_cpu != -1 || target_cpu != -1))) {
+			if (boosted) {
 				/*
-				 * For prefer_high_cap task, stop searching when an idle
+				 * For boosted task, stop searching when an idle
 				 * cpu is found in mid cluster.
 				 */
 				if ((mid_cap_orig_cpu != -1 &&
@@ -7950,9 +7906,9 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 		return best_idle_cpu;
 	}
 
-	if (best_idle_cpu != -1 &&
-	    !is_packing_eligible(p, target_cpu, fbt_env, active_cpus_count,
-				 best_idle_cstate, prefer_high_cap)) {
+	if (best_idle_cpu != -1 && !is_packing_eligible(p, target_cpu, fbt_env,
+					active_cpus_count, best_idle_cstate,
+					boosted)) {
 		target_cpu = best_idle_cpu;
 		best_idle_cpu = -1;
 	}
@@ -7980,7 +7936,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	if (target_cpu != -1 && !idle_cpu(target_cpu) &&
 			best_idle_cpu != -1) {
 		curr_tsk = READ_ONCE(cpu_rq(target_cpu)->curr);
-		if (curr_tsk && schedtune_prefer_high_cap(curr_tsk)) {
+		if (curr_tsk && schedtune_task_boost_rcu_locked(curr_tsk)) {
 			target_cpu = best_idle_cpu;
 		}
 	}
@@ -8258,7 +8214,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 	u64 start_t = 0;
 	int next_cpu = -1, backup_cpu = -1;
 	int boosted = (schedtune_task_boost(p) > 0);
-	bool prefer_high_cap = schedtune_prefer_high_cap(p);
+
 	fbt_env.fastpath = 0;
 
 	if (trace_sched_task_util_enabled())
@@ -8331,7 +8287,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		/* Find a cpu with sufficient capacity */
 		target_cpu = find_best_target(p, &eenv->cpu[EAS_CPU_BKP].cpu_id,
 					      boosted, sync_boost, prefer_idle,
-					      &fbt_env, prefer_high_cap);
+					      &fbt_env);
 		if (target_cpu < 0)
 			goto out;
 
@@ -8344,11 +8300,9 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		    p->state == TASK_WAKING)
 			delta = task_util(p);
 #endif
-		if (task_placement_boost_enabled(p) || need_idle ||
-		    prefer_high_cap ||
-		    (rtg_target &&
-		     (!cpumask_test_cpu(prev_cpu, rtg_target) ||
-		      cpumask_test_cpu(target_cpu, rtg_target))) ||
+		if (task_placement_boost_enabled(p) || need_idle || boosted ||
+		    (rtg_target && (!cpumask_test_cpu(prev_cpu, rtg_target) ||
+		    cpumask_test_cpu(target_cpu, rtg_target))) ||
 		    __cpu_overutilized(prev_cpu, delta) ||
 		    !task_fits_max(p, prev_cpu) || cpu_isolated(prev_cpu))
 			goto out;
@@ -8554,11 +8508,8 @@ pick_cpu:
 			 * indicate that the selection algorithm from mid
 			 * capacity cpu should be used.
 			*/
-			int high_cap_cpu =
-			    cpu_rq(cpu)->rd->mid_cap_orig_cpu != -1 ?
-			     cpu_rq(cpu)->rd->mid_cap_orig_cpu :
-			     cpu_rq(cpu)->rd->max_cap_orig_cpu;
-			bool sync_boost = sync && cpu >= high_cap_cpu;
+			bool sync_boost = sync &&
+				      cpu >= cpu_rq(cpu)->rd->mid_cap_orig_cpu;
 
 			new_cpu = find_energy_efficient_cpu(energy_sd, p, cpu,
 						    prev_cpu, sync, sync_boost);
