@@ -54,7 +54,6 @@
 #include "../soc/qcom/msm_bus/msm_bus_core.h"
 #define CREATE_TRACE_POINTS
 #include <trace/events/trace_msm_low_power.h>
-#include <linux/gpio.h>
 
 #define SCLK_HZ (32768)
 #define PSCI_POWER_STATE(reset) (reset << 30)
@@ -1356,11 +1355,6 @@ static bool psci_enter_sleep(struct lpm_cpu *cpu, int idx, bool from_idle)
 	state_id += power_state + affinity_level + cpu->levels[idx].psci_id;
 
 	stop_critical_timings();
-
-	if (!from_idle && pm_gpio_debug_mask) {
-		msm_gpio_dump(NULL);
-		pmic_gpio_dump(NULL);
-	}
 
 	success = !arm_cpuidle_suspend(state_id);
 
