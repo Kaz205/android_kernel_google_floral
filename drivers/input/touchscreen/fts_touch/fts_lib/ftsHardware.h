@@ -52,7 +52,7 @@
 				* OCTA panel needs to read Filtered RAW */
 
 /* PROTOCOL INFO */
-#define I2C_INTERFACE
+#define SPI_INETERFACE
 #ifdef I2C_INTERFACE
 #define I2C_SAD				0x49	/* /< slave address of the IC */
 #else
