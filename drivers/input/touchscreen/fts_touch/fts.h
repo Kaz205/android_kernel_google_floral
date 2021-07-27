@@ -32,7 +32,9 @@
 #ifndef _LINUX_FTS_I2C_H_
 #define _LINUX_FTS_I2C_H_
 
+#ifdef CONFIG_TOUCHSCREEN_HEATMAP
 #define TOUCHSCREEN_HEATMAP
+#endif
 
 #include <linux/device.h>
 #ifdef TOUCHSCREEN_HEATMAP
