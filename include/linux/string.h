@@ -134,9 +134,7 @@ static inline void *memset_p(void **p, void *v, __kernel_size_t n)
 		return memset64((uint64_t *)p, (uintptr_t)v, n);
 }
 
-#ifndef __HAVE_ARCH_MEMCPY
-extern void * memcpy(void *,const void *,__kernel_size_t);
-#endif
+extern void * memcpy_generic(void *,const void *,__kernel_size_t);
 #ifndef __HAVE_ARCH_MEMMOVE
 extern void * memmove(void *,const void *,__kernel_size_t);
 #endif

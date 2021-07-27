@@ -847,7 +847,6 @@ void *memset64(uint64_t *s, uint64_t v, size_t count)
 EXPORT_SYMBOL(memset64);
 #endif
 
-#ifndef __HAVE_ARCH_MEMCPY
 /**
  * memcpy - Copy one area of memory to another
  * @dest: Where to copy to
@@ -857,7 +856,7 @@ EXPORT_SYMBOL(memset64);
  * You should not use this function to access IO space, use memcpy_toio()
  * or memcpy_fromio() instead.
  */
-void *memcpy(void *dest, const void *src, size_t count)
+void *memcpy_generic(void *dest, const void *src, size_t count)
 {
 	char *tmp = dest;
 	const char *s = src;
@@ -866,8 +865,7 @@ void *memcpy(void *dest, const void *src, size_t count)
 		*tmp++ = *s++;
 	return dest;
 }
-EXPORT_SYMBOL(memcpy);
-#endif
+EXPORT_SYMBOL(memcpy_generic);
 
 #ifndef __HAVE_ARCH_MEMMOVE
 /**
