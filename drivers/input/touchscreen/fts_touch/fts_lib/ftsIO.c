@@ -225,7 +225,7 @@ static int fts_read_internal(u8 *outBuf, int byteToRead, bool dma_safe)
   * @param byteToRead number of bytes to read
   * @return OK if success or an error code which specify the type of error
   */
-static int fts_writeRead_internal(u8 *cmd, int cmdLength, u8 *outBuf,
+static __always_inline int fts_writeRead_internal(u8 *cmd, int cmdLength, u8 *outBuf,
 				  int byteToRead, bool dma_safe)
 {
 	int ret = -1;
@@ -319,7 +319,7 @@ static int fts_writeRead_internal(u8 *cmd, int cmdLength, u8 *outBuf,
   * @param cmdLength size of cmd
   * @return OK if success or an error code which specify the type of error
   */
-static int fts_write_internal(u8 *cmd, int cmdLength, bool dma_safe)
+static __always_inline int fts_write_internal(u8 *cmd, int cmdLength, bool dma_safe)
 {
 	int ret = -1;
 	int retry = 0;
@@ -591,12 +591,12 @@ int fts_writeRead(u8 *cmd, int cmdLength, u8 *outBuf, int byteToRead)
 					false);
 }
 
-int fts_writeRead_heap(u8 *cmd, int cmdLength, u8 *outBuf, int byteToRead)
+__always_inline int fts_writeRead_heap(u8 *cmd, int cmdLength, u8 *outBuf, int byteToRead)
 {
 	return fts_writeRead_internal(cmd, cmdLength, outBuf, byteToRead, true);
 }
 
-int fts_write(u8 *cmd, int cmdLength)
+__always_inline int fts_write(u8 *cmd, int cmdLength)
 {
 	return fts_write_internal(cmd, cmdLength, false);
 }
@@ -707,7 +707,7 @@ int fts_writeU8UX(u8 cmd, AddrSize addrSize, u64 address, u8 *data,
   * set to 1, otherwise if it is valid set to 0 (or any other value)
   * @return OK if success or an error code which specify the type of error
   */
-int fts_writeReadU8UX(u8 cmd, AddrSize addrSize, u64 address, u8 *outBuf,
+__always_inline int fts_writeReadU8UX(u8 cmd, AddrSize addrSize, u64 address, u8 *outBuf,
 		      int byteToRead, int hasDummyByte)
 {
 	u8 *finalCmd;

@@ -3802,7 +3802,7 @@ static bool read_heatmap_raw(struct v4l2_heatmap *v4l2)
 /* Update a state machine used to toggle control of the touch IC's motion
  * filter.
  */
-static int update_motion_filter(struct fts_ts_info *info)
+static __always_inline int update_motion_filter(struct fts_ts_info *info)
 {
 	/* Motion filter timeout, in milliseconds */
 	const u32 mf_timeout_ms = 500;
@@ -4008,7 +4008,7 @@ static void fts_populate_frame(struct fts_ts_info *info,
   * the FIFO and dispatch them to the proper event handler according the event
   * ID
   */
-static irqreturn_t fts_interrupt_handler(int irq, void *handle)
+static __always_inline irqreturn_t fts_interrupt_handler(int irq, void *handle)
 {
 	struct fts_ts_info *info = handle;
 	int error = 0, count = 0;
@@ -5114,7 +5114,7 @@ static void fts_suspend_work(struct work_struct *work)
 /** @}*/
 
 
-static void fts_aggregate_bus_state(struct fts_ts_info *info)
+static __always_inline void fts_aggregate_bus_state(struct fts_ts_info *info)
 {
 	pr_debug("%s: bus_refmask = 0x%02X.\n", __func__,
 		 info->bus_refmask);
@@ -5133,7 +5133,7 @@ static void fts_aggregate_bus_state(struct fts_ts_info *info)
 		queue_work(info->event_wq, &info->resume_work);
 }
 
-int fts_set_bus_ref(struct fts_ts_info *info, u16 ref, bool enable)
+int __always_inline fts_set_bus_ref(struct fts_ts_info *info, u16 ref, bool enable)
 {
 	int result = OK;
 
