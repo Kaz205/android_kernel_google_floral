@@ -40,7 +40,7 @@ u16 gesture_coordinates_y[GESTURE_MAX_COORDS_PAIRS_REPORT] = { 0 };
 int gesture_coords_reported = ERROR_OP_NOT_ALLOW;
 static u8 refreshGestureMask;	/* /< flag which indicate if there is
 				 * the need to set the gesture mask in the FW */
-struct mutex gestureMask_mutex;	/* /< mutex used to control access on gesture
+spinlock_t gestureMask_lock;	/* /< lock used to control access on gesture
 				 * shared variables */
 
 /**
@@ -64,7 +64,7 @@ int updateGestureMask(u8 *mask, int size, int en)
 	if (mask != NULL) {
 		if (size <= GESTURE_MASK_SIZE) {
 			if (en == FEAT_ENABLE) {
-				mutex_lock(&gestureMask_mutex);
+				spin_lock(&gestureMask_lock);
 				pr_info("updateGestureMask: setting gesture mask to enable...\n");
 				if (mask != NULL)
 					for (i = 0; i < size; i++)
@@ -74,10 +74,10 @@ int updateGestureMask(u8 *mask, int size, int en)
 				/* back up of the gesture enabled */
 				refreshGestureMask = 1;
 				pr_info("updateGestureMask: gesture mask to enable SET!\n");
-				mutex_unlock(&gestureMask_mutex);
+				spin_unlock(&gestureMask_lock);
 				return OK;
 			} else if (en == FEAT_DISABLE) {
-				mutex_lock(&gestureMask_mutex);
+				spin_lock(&gestureMask_lock);
 				pr_info("updateGestureMask: setting gesture mask to disable...\n");
 				for (i = 0; i < size; i++) {
 					temp = gesture_mask[i] ^ mask[i];
@@ -90,7 +90,7 @@ int updateGestureMask(u8 *mask, int size, int en)
 				}
 				pr_info("updateGestureMask: gesture mask to disable SET!\n");
 				refreshGestureMask = 1;
-				mutex_unlock(&gestureMask_mutex);
+				spin_unlock(&gestureMask_lock);
 				return OK;
 			} else {
 				pr_err("%s: Enable parameter Invalid! %d != %d or %d ERROR %08X\n",
@@ -130,7 +130,7 @@ int enableGesture(u8 *mask, int size)
 	pr_info("Trying to enable gesture...\n");
 
 	if (size <= GESTURE_MASK_SIZE) {
-		mutex_lock(&gestureMask_mutex);
+		spin_lock(&gestureMask_lock);
 		if (mask != NULL)
 			for (i = 0; i < size; i++)
 				gesture_mask[i] = gesture_mask[i] | mask[i];
@@ -147,7 +147,7 @@ int enableGesture(u8 *mask, int size)
 		res = OK;
 
 END:
-		mutex_unlock(&gestureMask_mutex);
+		spin_unlock(&gestureMask_lock);
 		return res;
 	} else {
 		pr_err("enableGesture: Size not valid! %d > %d ERROR %08X\n",
@@ -177,7 +177,7 @@ int disableGesture(u8 *mask, int size)
 
 
 	if (size <= GESTURE_MASK_SIZE) {
-		mutex_lock(&gestureMask_mutex);
+		spin_lock(&gestureMask_lock);
 		if (mask != NULL) {
 			for (i = 0; i < size; i++) {
 				temp = gesture_mask[i] ^ mask[i];
@@ -206,7 +206,7 @@ int disableGesture(u8 *mask, int size)
 		res = OK;
 
 END:
-		mutex_unlock(&gestureMask_mutex);
+		spin_unlock(&gestureMask_lock);
 		return res;
 	} else {
 		pr_err("disableGesture: Size not valid! %d > %d ERROR %08X\n",

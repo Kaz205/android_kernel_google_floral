@@ -693,7 +693,7 @@ static int fts_driver_test_open(struct inode *inode, struct file *file)
 		goto exit;
 	}
 
-	if (!mutex_trylock(&info->diag_cmd_lock)) {
+	if (!spin_trylock(&info->diag_cmd_lock)) {
 		pr_err("%s: Blocking concurrent access\n", __func__);
 		retval = -EBUSY;
 		goto exit;
@@ -712,7 +712,7 @@ static int fts_driver_test_open(struct inode *inode, struct file *file)
 	}
 
 unlock:
-	mutex_unlock(&info->diag_cmd_lock);
+	spin_unlock(&info->diag_cmd_lock);
 exit:
 	return retval;
 };
@@ -730,7 +730,7 @@ static int fts_driver_test_release(struct inode *inode, struct file *file)
 	int retval;
 
 	if (info)
-		mutex_lock(&info->diag_cmd_lock);
+		spin_lock(&info->diag_cmd_lock);
 	else
 		pr_err("%s: Unable to access driver data\n", __func__);
 
@@ -738,7 +738,7 @@ static int fts_driver_test_release(struct inode *inode, struct file *file)
 
 	if (info) {
 		info->diag_node_open = false;
-		mutex_unlock(&info->diag_cmd_lock);
+		spin_unlock(&info->diag_cmd_lock);
 	}
 
 	return retval;

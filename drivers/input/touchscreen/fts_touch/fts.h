@@ -377,7 +377,7 @@ struct fts_touchsim{
   * - notifier        Used for be notified from a suspend/resume event \n
   * - sensor_sleep    true suspend was called, false resume was called \n
   * - wakesrc         Wakeup Source struct \n
-  * - input_report_mutex  mutex for handling the pressure of keys \n
+  * - input_report_lock  lock for handling the pressure of keys \n
   * - series_of_switches  to store the enabling status of a particular feature
   *                       from the host \n
   * - tbn             Touch Bus Negotiator context
@@ -431,7 +431,7 @@ struct fts_ts_info {
 	spinlock_t fts_int;	/* Spinlock to protect interrupt toggling */
 	bool irq_enabled;	/* Interrupt state */
 
-	struct mutex bus_mutex;	/* Protect access to the bus */
+	spinlock_t bus_lock;	/* Protect access to the bus */
 	unsigned int bus_refmask; /* References to the bus */
 
 	int resume_bit;	/* Indicate if screen off/on */
@@ -447,7 +447,7 @@ struct fts_ts_info {
 	struct wakeup_source wakesrc;	/* Wake Lock struct */
 
 	/* input lock */
-	struct mutex input_report_mutex;	/* Mutex for pressure report */
+	spinlock_t input_report_lock;	/* Lock for pressure report */
 
 	/* switches for features */
 	int gesture_enabled;	/* Gesture during suspend */
@@ -473,7 +473,7 @@ struct fts_ts_info {
 #endif
 
 	/* Allow only one thread to execute diag command code*/
-	struct mutex diag_cmd_lock;
+	spinlock_t diag_cmd_lock;
 	/* Allow one process to open procfs node */
 	bool diag_node_open;
 

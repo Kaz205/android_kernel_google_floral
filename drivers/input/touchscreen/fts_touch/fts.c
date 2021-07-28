@@ -111,7 +111,7 @@
 extern SysInfo systemInfo;
 extern TestToDo tests;
 #ifdef GESTURE_MODE
-extern struct mutex gestureMask_mutex;
+extern spinlock_t gestureMask_lock;
 #endif
 
 char fts_ts_phys[64];	/* /< buffer which store the input device name
@@ -130,7 +130,7 @@ static u8 mask[GESTURE_MASK_SIZE + 2];
 extern u16 gesture_coordinates_x[GESTURE_MAX_COORDS_PAIRS_REPORT];
 extern u16 gesture_coordinates_y[GESTURE_MAX_COORDS_PAIRS_REPORT];
 extern int gesture_coords_reported;
-extern struct mutex gestureMask_mutex;
+extern spinlock_t gestureMask_lock;
 #endif
 
 #ifdef PHONE_KEY
@@ -1635,7 +1635,7 @@ static ssize_t fts_touch_simulation_store(struct device *dev,
 	ssize_t retval = count;
 	u8 result;
 
-	if (!mutex_trylock(&info->diag_cmd_lock)) {
+	if (!spin_trylock(&info->diag_cmd_lock)) {
 		pr_err("%s: Blocking concurrent access\n", __func__);
 		retval = -EBUSY;
 		goto out;
@@ -1656,7 +1656,7 @@ static ssize_t fts_touch_simulation_store(struct device *dev,
 		pr_err("%s:Invalid cmd(%u). valid cmds are either 0 or 1!\n",
 			__func__, result);
 unlock:
-	mutex_unlock(&info->diag_cmd_lock);
+	spin_unlock(&info->diag_cmd_lock);
 out:
 	return retval;
 }
@@ -1686,7 +1686,7 @@ static ssize_t fts_default_mf_store(struct device *dev,
 	bool val = false;
 	ssize_t retval = count;
 
-	if (!mutex_trylock(&info->diag_cmd_lock)) {
+	if (!spin_trylock(&info->diag_cmd_lock)) {
 		pr_err("%s: Blocking concurrent access\n", __func__);
 		retval = -EBUSY;
 		goto out;
@@ -1702,7 +1702,7 @@ static ssize_t fts_default_mf_store(struct device *dev,
 	info->use_default_mf = val;
 
 unlock:
-	mutex_unlock(&info->diag_cmd_lock);
+	spin_unlock(&info->diag_cmd_lock);
 out:
 	return retval;
 }
@@ -1767,7 +1767,7 @@ static ssize_t stm_fts_cmd_store(struct device *dev,
 		goto out;
 	}
 
-	if (!mutex_trylock(&info->diag_cmd_lock)) {
+	if (!spin_trylock(&info->diag_cmd_lock)) {
 		pr_err("%s: Blocking concurrent access\n", __func__);
 		retval = -EBUSY;
 		goto out;
@@ -1845,7 +1845,7 @@ static ssize_t stm_fts_cmd_store(struct device *dev,
 	kfree(temp_buf);
 
 unlock:
-	mutex_unlock(&info->diag_cmd_lock);
+	spin_unlock(&info->diag_cmd_lock);
 out:
 	return retval;
 }
@@ -1873,7 +1873,7 @@ static ssize_t stm_fts_cmd_show(struct device *dev,
 		return  -EINVAL;
 	}
 
-	if (!mutex_trylock(&info->diag_cmd_lock)) {
+	if (!spin_trylock(&info->diag_cmd_lock)) {
 		pr_err("%s: Blocking concurrent access\n", __func__);
 		return -EBUSY;
 	}
@@ -1883,7 +1883,7 @@ static ssize_t stm_fts_cmd_show(struct device *dev,
 		pr_err("%s: bus is not accessible.\n", __func__);
 		scnprintf(buf, PAGE_SIZE, "{ %08X }\n", res);
 		fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, false);
-		mutex_unlock(&info->diag_cmd_lock);
+		spin_unlock(&info->diag_cmd_lock);
 		return 0;
 	}
 
@@ -2413,7 +2413,7 @@ END:
 	/* pr_err("numberParameters = %d\n", numberParameters); */
 
 	fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, false);
-	mutex_unlock(&info->diag_cmd_lock);
+	spin_unlock(&info->diag_cmd_lock);
 
 	return index;
 }
@@ -2808,12 +2808,12 @@ static struct attribute *fts_attr_group[] = {
   */
 void fts_input_report_key(struct fts_ts_info *info, int key_code)
 {
-	mutex_lock(&info->input_report_mutex);
+	spin_lock(&info->input_report_lock);
 	input_report_key(info->input_dev, key_code, 1);
 	input_sync(info->input_dev);
 	input_report_key(info->input_dev, key_code, 0);
 	input_sync(info->input_dev);
-	mutex_unlock(&info->input_report_mutex);
+	spin_unlock(&info->input_report_lock);
 }
 
 
@@ -4026,7 +4026,7 @@ static __always_inline irqreturn_t fts_interrupt_handler(int irq, void *handle)
 #endif
 
 	/* It is possible that interrupts were disabled while the handler is
-	 * executing, before acquiring the mutex. If so, simply return.
+	 * executing, before acquiring the lock. If so, simply return.
 	 */
 	if (fts_set_bus_ref(info, FTS_BUS_REF_IRQ, true) < 0) {
 		fts_set_bus_ref(info, FTS_BUS_REF_IRQ, false);
@@ -5137,13 +5137,13 @@ int __always_inline fts_set_bus_ref(struct fts_ts_info *info, u16 ref, bool enab
 {
 	int result = OK;
 
-	mutex_lock(&info->bus_mutex);
+	spin_lock(&info->bus_lock);
 
 	if ((enable && (info->bus_refmask & ref)) ||
 	    (!enable && !(info->bus_refmask & ref))) {
 		pr_debug("%s: reference is unexpectedly set: mask=0x%04X, ref=0x%04X, enable=%d.\n",
 			__func__, info->bus_refmask, ref, enable);
-		mutex_unlock(&info->bus_mutex);
+		spin_unlock(&info->bus_lock);
 		return ERROR_OP_NOT_ALLOW;
 	}
 
@@ -5159,7 +5159,7 @@ int __always_inline fts_set_bus_ref(struct fts_ts_info *info, u16 ref, bool enab
 		info->bus_refmask &= ~ref;
 	fts_aggregate_bus_state(info);
 
-	mutex_unlock(&info->bus_mutex);
+	spin_unlock(&info->bus_lock);
 
 	/* When triggering a wake, wait up to one second to resume. SCREEN_ON
 	 * and IRQ references do not need to wait.
@@ -5753,16 +5753,16 @@ static int fts_probe(struct spi_device *client)
 	input_set_capability(info->input_dev, EV_KEY, KEY_MENU);
 #endif
 
-	mutex_init(&info->diag_cmd_lock);
+	spin_lock_init(&info->diag_cmd_lock);
 
-	mutex_init(&(info->input_report_mutex));
-	mutex_init(&info->bus_mutex);
+	spin_lock_init(&(info->input_report_lock));
+	spin_lock_init(&info->bus_lock);
 
 	/* Assume screen is on throughout probe */
 	info->bus_refmask = FTS_BUS_REF_SCREEN_ON;
 
 #ifdef GESTURE_MODE
-	mutex_init(&gestureMask_mutex);
+	spin_lock_init(&gestureMask_lock);
 #endif
 
 	spin_lock_init(&info->fts_int);
