@@ -238,8 +238,8 @@ static __always_inline int fts_writeRead_internal(u8 *cmd, int cmdLength, u8 *ou
 	struct spi_transfer transfer[2] = { { 0 }, { 0 } };
 #endif
 
-	if (dma_safe == false && (cmdLength > sizeof(info->io_write_buf) ||
-	    byteToRead > sizeof(info->io_read_buf))) {
+	if (unlikely(dma_safe == false && (cmdLength > sizeof(info->io_write_buf) ||
+	    byteToRead > sizeof(info->io_read_buf)))) {
 		pr_err("%s: preallocated buffers are too small!\n", __func__);
 		return ERROR_ALLOC;
 	}
@@ -331,7 +331,7 @@ static __always_inline int fts_write_internal(u8 *cmd, int cmdLength, bool dma_s
 	struct spi_transfer transfer[1] = { { 0 } };
 #endif
 
-	if (dma_safe == false && cmdLength > sizeof(info->io_write_buf)) {
+	if (unlikely(dma_safe == false && cmdLength > sizeof(info->io_write_buf))) {
 		pr_err("%s: preallocated buffers are too small!\n", __func__);
 		return ERROR_ALLOC;
 	}
@@ -734,16 +734,16 @@ __always_inline int fts_writeReadU8UX(u8 cmd, AddrSize addrSize, u64 address, u8
 							    8)) & 0xFF);
 
 		if (hasDummyByte == 1) {
-			if (fts_writeRead_heap(finalCmd, 1 + addrSize, buff,
-					toRead + 1) < OK) {
+			if (unlikely(fts_writeRead_heap(finalCmd, 1 + addrSize, buff,
+					toRead + 1) < OK)) {
 				pr_err("%s: read error... ERROR %08X\n",
 					__func__, ERROR_BUS_WR);
 				return ERROR_BUS_WR;
 			}
 			memcpy(outBuf, buff + 1, toRead);
 		} else {
-			if (fts_writeRead_heap(finalCmd, 1 + addrSize, buff,
-					toRead) < OK) {
+			if (unlikely(fts_writeRead_heap(finalCmd, 1 + addrSize, buff,
+					toRead) < OK)) {
 				pr_err("%s: read error... ERROR %08X\n",
 					__func__, ERROR_BUS_WR);
 				return ERROR_BUS_WR;

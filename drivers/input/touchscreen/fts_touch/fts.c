@@ -4028,7 +4028,7 @@ static __always_inline irqreturn_t fts_interrupt_handler(int irq, void *handle)
 	/* It is possible that interrupts were disabled while the handler is
 	 * executing, before acquiring the lock. If so, simply return.
 	 */
-	if (fts_set_bus_ref(info, FTS_BUS_REF_IRQ, true) < 0) {
+	if (unlikely(fts_set_bus_ref(info, FTS_BUS_REF_IRQ, true) < 0)) {
 		fts_set_bus_ref(info, FTS_BUS_REF_IRQ, false);
 		return IRQ_HANDLED;
 	}
@@ -4052,7 +4052,7 @@ static __always_inline irqreturn_t fts_interrupt_handler(int irq, void *handle)
 					  FIFO_EVENT_SIZE * events_remaining,
 					  DUMMY_FIFO);
 	}
-	if (error != OK) {
+	if (unlikely(error != OK)) {
 		pr_err("Error (%08X) while reading from FIFO in fts_event_handler\n",
 			error);
 	} else {
@@ -5139,8 +5139,8 @@ int __always_inline fts_set_bus_ref(struct fts_ts_info *info, u16 ref, bool enab
 
 	spin_lock(&info->bus_lock);
 
-	if ((enable && (info->bus_refmask & ref)) ||
-	    (!enable && !(info->bus_refmask & ref))) {
+	if (unlikely((enable && (info->bus_refmask & ref)) ||
+	    (!enable && !(info->bus_refmask & ref)))) {
 		pr_debug("%s: reference is unexpectedly set: mask=0x%04X, ref=0x%04X, enable=%d.\n",
 			__func__, info->bus_refmask, ref, enable);
 		spin_unlock(&info->bus_lock);
@@ -5164,7 +5164,7 @@ int __always_inline fts_set_bus_ref(struct fts_ts_info *info, u16 ref, bool enab
 	/* When triggering a wake, wait up to one second to resume. SCREEN_ON
 	 * and IRQ references do not need to wait.
 	 */
-	if (enable && ref != FTS_BUS_REF_SCREEN_ON && ref != FTS_BUS_REF_IRQ) {
+	if (unlikely(enable && ref != FTS_BUS_REF_SCREEN_ON && ref != FTS_BUS_REF_IRQ)) {
 		wait_for_completion_timeout(&info->bus_resumed, HZ);
 		if (info->sensor_sleep) {
 			pr_err("%s: Failed to wake the touch bus: mask=0x%04X, ref=0x%04X, enable=%d.\n",
