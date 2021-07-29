@@ -2931,8 +2931,6 @@ static inline void walt_fixup_cum_window_demand(struct rq *rq, s64 scaled_delta)
 
 extern void update_cpu_cluster_capacity(const cpumask_t *cpus);
 
-extern unsigned long thermal_cap(int cpu);
-
 extern void clear_walt_request(int cpu);
 
 extern enum sched_boost_policy sched_boost_policy(void);
@@ -3073,13 +3071,6 @@ static inline void walt_fixup_cum_window_demand(struct rq *rq,
 						s64 scaled_delta) { }
 
 static inline void update_cpu_cluster_capacity(const cpumask_t *cpus) { }
-
-#ifdef CONFIG_SMP
-static inline unsigned long thermal_cap(int cpu)
-{
-	return SCHED_CAPACITY_SCALE;
-}
-#endif
 
 static inline void clear_walt_request(int cpu) { }
 
