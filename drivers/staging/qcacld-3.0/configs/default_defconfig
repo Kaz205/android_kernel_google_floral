@@ -28,7 +28,7 @@ endif
 endif
 
 # Make WLAN as open-source driver by default
-WLAN_OPEN_SOURCE := y
+WLAN_OPEN_SOURCE := n
 
 ifeq ($(CONFIG_ICNSS), y)
 	CONFIG_HELIUMPLUS := y
@@ -506,7 +506,7 @@ CONFIG_FEATURE_SECURE_FIRMWARE := n
 CONFIG_FEATURE_STATS_EXT := y
 
 #Flag to enable HTC credit history feature
-CONFIG_FEATURE_HTC_CREDIT_HISTORY := y
+CONFIG_FEATURE_HTC_CREDIT_HISTORY := n
 
 #Flag to enable MTRACE feature
 CONFIG_TRACE_RECORD_FEATURE := n
