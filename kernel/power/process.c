@@ -88,7 +88,7 @@ static int try_to_freeze_tasks(bool user_only)
 
 	if (wakeup) {
 		pr_debug("\n");
-		pr_err("Freezing of tasks aborted after %d.%03d seconds",
+		pr_debug("Freezing of tasks aborted after %d.%03d seconds",
 		       elapsed_msecs / 1000, elapsed_msecs % 1000);
 	} else if (todo) {
 		pr_debug("\n");
