@@ -115,11 +115,6 @@ static ssize_t st54j_se_write(struct file *filp, const char __user *ubuf,
 		size_t block = bytes < ST54_MAX_BUF ? bytes : ST54_MAX_BUF;
 
 		tx_buf = ese_dev->kbuf;
-		if (!tx_buf) {
-			dev_err(&ese_dev->spi->dev, "kbuf NULL\n");
-			ret = -ENOMEM;
-			goto err;
-		}
 		if (copy_from_user(tx_buf, ubuf, block)) {
 			dev_dbg(&ese_dev->spi->dev,
 				"failed to copy from user\n");
@@ -158,11 +153,6 @@ static ssize_t st54j_se_read(struct file *filp, char __user *ubuf, size_t len,
 		size_t block = bytes < ST54_MAX_BUF ? bytes : ST54_MAX_BUF;
 
 		rx_buf = ese_dev->kbuf;
-		if (!rx_buf) {
-			dev_err(&ese_dev->spi->dev, "kbuf NULL\n");
-			ret = -ENOMEM;
-			goto err;
-		}
 
 		memset(rx_buf, 0, ST54_MAX_BUF);
 		ret = spi_read(ese_dev->spi, rx_buf, block);
