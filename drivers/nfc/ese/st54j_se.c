@@ -38,7 +38,6 @@ struct st54j_se_dev {
 	bool device_open;
 	/* GPIO for SE Reset pin (output) */
 	struct gpio_desc *gpiod_se_reset;
-	char *kbuf;
 };
 
 static long st54j_se_ioctl(struct file *filp, unsigned int cmd,
@@ -104,7 +103,7 @@ static ssize_t st54j_se_write(struct file *filp, const char __user *ubuf,
 	struct st54j_se_dev *ese_dev = filp->private_data;
 	int ret = -EFAULT;
 	size_t bytes = len;
-	char *tx_buf = NULL;
+	char tx_buf[ST54_MAX_BUF];
 
 	if (len > INT_MAX)
 		return -EINVAL;
@@ -114,7 +113,6 @@ static ssize_t st54j_se_write(struct file *filp, const char __user *ubuf,
 	while (bytes > 0) {
 		size_t block = bytes < ST54_MAX_BUF ? bytes : ST54_MAX_BUF;
 
-		tx_buf = ese_dev->kbuf;
 		if (copy_from_user(tx_buf, ubuf, block)) {
 			dev_dbg(&ese_dev->spi->dev,
 				"failed to copy from user\n");
@@ -142,7 +140,7 @@ static ssize_t st54j_se_read(struct file *filp, char __user *ubuf, size_t len,
 	struct st54j_se_dev *ese_dev = filp->private_data;
 	ssize_t ret = -EFAULT;
 	size_t bytes = len;
-	char *rx_buf = NULL;
+	char rx_buf[ST54_MAX_BUF];
 
 	if (len > INT_MAX)
 		return -EINVAL;
@@ -151,8 +149,6 @@ static ssize_t st54j_se_read(struct file *filp, char __user *ubuf, size_t len,
 	mutex_lock(&ese_dev->mutex);
 	while (bytes > 0) {
 		size_t block = bytes < ST54_MAX_BUF ? bytes : ST54_MAX_BUF;
-
-		rx_buf = ese_dev->kbuf;
 
 		memset(rx_buf, 0, ST54_MAX_BUF);
 		ret = spi_read(ese_dev->spi, rx_buf, block);
@@ -210,10 +206,6 @@ static int st54j_se_probe(struct spi_device *spi)
 	if (spi_param == NULL) {
 		return -ENOMEM;
 	}
-
-	ese_dev->kbuf = devm_kzalloc(dev, ST54_MAX_BUF, GFP_KERNEL);
-	if (ese_dev->kbuf == NULL)
-		return -ENOMEM;
 
 	ese_dev->spi = spi;
 	ese_dev->device.minor = MISC_DYNAMIC_MINOR;
