@@ -449,17 +449,20 @@ static void sx9320_crack_detection(struct led_laser_ctrl_t *ctrl)
 
 int sx9320_init_setting(struct led_laser_ctrl_t *ctrl)
 {
-	int rc, i;
+	int rc;
 	size_t settings_size = ARRAY_SIZE(cap_sense_init_reg_settings);
 	struct cam_sensor_i2c_reg_setting write_setting;
-	struct cam_sensor_i2c_reg_array reg_settings[settings_size];
+	struct cam_sensor_i2c_reg_array reg_settings[2];
 
-	for (i = 0; i < settings_size; i++) {
-		reg_settings[i].reg_addr = cap_sense_init_reg_settings[i].addr;
-		reg_settings[i].reg_data = cap_sense_init_reg_settings[i].data;
-		reg_settings[i].delay = 0;
-		reg_settings[i].data_mask = 0;
-	}
+	reg_settings[0].reg_addr = cap_sense_init_reg_settings[0].addr;
+	reg_settings[0].reg_data = cap_sense_init_reg_settings[0].data;
+	reg_settings[0].delay = 0;
+	reg_settings[0].data_mask = 0;
+	reg_settings[1].reg_addr = cap_sense_init_reg_settings[1].addr;
+	reg_settings[1].reg_data = cap_sense_init_reg_settings[1].data;
+	reg_settings[1].delay = 0;
+	reg_settings[1].data_mask = 0;
+
 	write_setting.reg_setting = reg_settings;
 	write_setting.addr_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
 	write_setting.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
