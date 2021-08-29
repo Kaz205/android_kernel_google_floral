@@ -26,6 +26,7 @@
 #include "ftsCompensation.h"
 #include "ftsCore.h"
 #include "ftsError.h"
+#include "ftsGesture.h"
 #include "ftsIO.h"
 #include "ftsTest.h"
 #include "ftsTime.h"
@@ -399,10 +400,10 @@ int setScanMode(u8 mode, u8 settings)
   */
 int setFeatures(u8 feat, u8 *settings, int size)
 {
-	u8 cmd[2 + size];
+	u8 cmd[2 + GESTURE_MASK_SIZE];
 	int i = 0;
 	int ret;
-	char buff[(2 + 1) * size + 1];
+	char buff[(2 + 1) * GESTURE_MASK_SIZE + 1];
 	int buff_len = sizeof(buff);
 	int index = 0;
 
@@ -442,9 +443,9 @@ int setFeatures(u8 feat, u8 *settings, int size)
   */
 int writeSysCmd(u8 sys_cmd, u8 *sett, int size)
 {
-	u8 cmd[2 + size];
+	u8 cmd[4];
 	int ret;
-	char buff[(2 + 1) * size + 1];
+	char buff[(2 + 1) * 2 + 1];
 	int buff_len = sizeof(buff);
 	int index = 0;
 
