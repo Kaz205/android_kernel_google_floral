@@ -452,8 +452,8 @@ static void p9221_write_fod(struct p9221_charger_data *charger)
 		goto no_fod;
 
 	while (retries) {
-		char s[fod_count * 3 + 1];
-		u8 fod_read[fod_count];
+		char s[INT_MAX];
+		u8 fod_read[INT_MAX];
 
 		dev_info(&charger->client->dev, "Writing %s FOD (n=%d reg=%02x try=%d)\n",
 			 epp ? "EPP" : "BPP", fod_count, P9221R5_FOD_REG,
@@ -3100,7 +3100,7 @@ static void p9221_irq_handler(struct p9221_charger_data *charger, u16 irq_src)
 				"Failed to read PP len: %d\n", res);
 		} else if (buff[0] == FAST_SERIAL_ID_HEADER) {
 			const size_t maxsz = sizeof(charger->pp_buf) * 3 + 1;
-			char s[maxsz];
+			char s[P9221R5_MAX_PP_BUF_SIZE * 3 + 1];
 			u8 tmp;
 
 			memcpy(charger->pp_buf, buff, sizeof(charger->pp_buf));
@@ -3335,11 +3335,16 @@ static int p9221_parse_dt(struct device *dev,
 		ret = of_property_read_u8_array(node, "fod", pdata->fod,
 						pdata->fod_num);
 		if (ret == 0) {
-			char buf[pdata->fod_num * 3 + 1];
+			char *buf;
+
+			buf = kcalloc(pdata->fod_num * 3 + 1, sizeof(char), GFP_KERNEL);
+			if (!buf)
+				return -ENOMEM;
 
 			p9221_hex_str(pdata->fod, pdata->fod_num, buf,
 				      pdata->fod_num * 3 + 1, false);
 			dev_info(dev, "dt fod: %s (%d)\n", buf, pdata->fod_num);
+			kfree(buf);
 		}
 	}
 
@@ -3359,12 +3364,17 @@ static int p9221_parse_dt(struct device *dev,
 		ret = of_property_read_u8_array(node, "fod_epp", pdata->fod_epp,
 						pdata->fod_epp_num);
 		if (ret == 0) {
-			char buf[pdata->fod_epp_num * 3 + 1];
+			char *buf;
+
+			buf = kcalloc(pdata->fod_num * 3 + 1, sizeof(char), GFP_KERNEL);
+			if (!buf)
+				return -ENOMEM;
 
 			p9221_hex_str(pdata->fod_epp, pdata->fod_epp_num, buf,
 				      pdata->fod_epp_num * 3 + 1, false);
 			dev_info(dev, "dt fod_epp: %s (%d)\n", buf,
 				 pdata->fod_epp_num);
+			kfree(buf);
 		}
 	}
 
