@@ -523,13 +523,10 @@ static int pac193x_i2c_write(struct i2c_client *client, u8 reg_addr,
 				int len, u8 *data)
 {
 	int ret;
-	u8 send[len + 1];
 	struct i2c_msg msg = { .addr = client->addr,
 				.len = len + 1, .flags = 0 };
 
-	send[0] = reg_addr;
-	memcpy(&send[1], data, len * sizeof(u8));
-	msg.buf = send;
+	msg.buf = &reg_addr;
 
 	ret = i2c_transfer(client->adapter, &msg, 1);
 	if (ret < 0) {
