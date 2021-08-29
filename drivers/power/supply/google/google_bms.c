@@ -379,7 +379,7 @@ int gbms_cycle_count_cstr_bc(char *buf, size_t size,
 /* parse the result of gbms_cycle_count_cstr_bc() back to array */
 int gbms_cycle_count_sscan_bc(u16 *ccount, int bcnt, const char *buff)
 {
-	int i, val[bcnt];
+	int i, val[GBMS_CCBIN_BUCKET_COUNT];
 
 	/* sscanf has 10 fixed conversions */
 	if (bcnt != 10)
