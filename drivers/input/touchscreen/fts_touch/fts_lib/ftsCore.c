@@ -1103,64 +1103,6 @@ int setActiveScanFrequency(u32 freq)
 	return OK;
 }
 
-/**
-  * Write Host Data Memory
-  * @param type type of data to write
-  * @param data pointer to the data which are written
-  * @param msForceLen number of force (Tx) channels used with Mutual
-  * @param msSenseLen number of sense (Rx) channels used with Mutual
-  * @param ssForceLen number of force (Tx) channel used with Self
-  * @param ssSenseLen number of sense (Rx) channel used with Self
-  * @param save if =1 will save the host data written into the flash
-  * @return OK if success or an error code which specify the type of error
-  */
-int writeHostDataMemory(u8 type, u8 *data, u8 msForceLen, u8 msSenseLen,
-			u8 ssForceLen, u8 ssSenseLen, int save)
-{
-	int res;
-	int size = (msForceLen * msSenseLen) + (ssForceLen + ssSenseLen);
-	u8 sett = SPECIAL_WRITE_HOST_MEM_TO_FLASH;
-	u8 temp[size + SYNCFRAME_DATA_HEADER];
-
-	memset(temp, 0, size + SYNCFRAME_DATA_HEADER);
-	pr_info("%s: Starting to write Host Data Memory\n", __func__);
-
-	temp[0] = 0x5A;
-	temp[1] = type;
-	temp[5] = msForceLen;
-	temp[6] = msSenseLen;
-	temp[7] = ssForceLen;
-	temp[8] = ssSenseLen;
-
-	memcpy(&temp[16], data, size);
-
-	pr_info("%s: Write Host Data Memory in buffer...\n", __func__);
-	res = fts_writeU8UX(FTS_CMD_FRAMEBUFFER_W, BITS_16,
-			    ADDR_FRAMEBUFFER, temp, size +
-			    SYNCFRAME_DATA_HEADER);
-
-	if (res < OK) {
-		pr_err("%s: error while writing the buffer! ERROR %08X\n",
-			__func__, res);
-		return res;
-	}
-
-	/* save host data memory into the flash */
-	if (save == 1) {
-		pr_info("%s: Trigger writing into the flash...\n", __func__);
-		res = writeSysCmd(SYS_CMD_SPECIAL, &sett, 1);
-		if (res < OK) {
-			pr_err("%s: error while writing into the flash! ERROR %08X\n",
-				__func__, res);
-			return res;
-		}
-	}
-
-
-	pr_info("%s: write Host Data Memory FINISHED!\n", __func__);
-	return OK;
-}
-
 /*
  * Save MP flag value into the flash
  * @param mpflag Value to write in the MP Flag field
