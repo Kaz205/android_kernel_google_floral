@@ -668,19 +668,25 @@ static int ct_seq_show(struct seq_file *s, void *v)
 {
 	struct gbms_storage_device *gdev =
 		(struct gbms_storage_device *)s->private;
-	u8 data[gdev->entry.count];
+	u8 *data;
 	loff_t *spos = (loff_t *)v;
-	int ret;
+	int ret = 0;
+
+	data = kmalloc(gdev->entry.count * sizeof(int), GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
 
 	ret = gbms_storage_read_data(gdev->entry.tag, data, sizeof(data),
 				     *spos);
 	if (ret < 0)
-		return ret;
+		goto exit;
 
 	if (gdev->show_fn)
 		gdev->show_fn(s, data, ret);
 
-	return 0;
+exit:
+	kfree(data);
+	return ret;
 }
 
 static const struct seq_operations ct_seq_ops = {
