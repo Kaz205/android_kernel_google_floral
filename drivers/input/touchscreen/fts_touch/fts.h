@@ -63,10 +63,6 @@
 #define pr_fmt(fmt) "[ FTS ] " fmt
 #endif
 
-#define DRIVER_TEST	/* /< if defined allow to use and test special functions
-			  * of the driver and fts_lib from command shell
-			  * (useful for enginering/debug operations) */
-
 /* If both COMPUTE_INIT_METHOD and PRE_SAVED_METHOD are not defined,
  * driver will be automatically configured as GOLDEN_VALUE_METHOD
  */
@@ -471,12 +467,6 @@ struct fts_ts_info {
 #ifdef CONFIG_TOUCHSCREEN_TBN
 	struct tbn_context	*tbn;
 #endif
-
-	/* Allow only one thread to execute diag command code*/
-	struct mutex diag_cmd_lock;
-	/* Allow one process to open procfs node */
-	bool diag_node_open;
-
 	/* Touch simulation details */
 	struct fts_touchsim touchsim;
 
@@ -496,10 +486,6 @@ int dsi_panel_read_vendor_extinfo(struct drm_panel *panel, char *buffer,
 int fts_chip_powercycle(struct fts_ts_info *info);
 extern int input_register_notifier_client(struct notifier_block *nb);
 extern int input_unregister_notifier_client(struct notifier_block *nb);
-
-/* export declaration of functions in fts_proc.c */
-extern int fts_proc_init(void);
-extern int fts_proc_remove(void);
 
 /* Bus reference tracking */
 int fts_set_bus_ref(struct fts_ts_info *info, u16 ref, bool enable);

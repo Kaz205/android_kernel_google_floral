@@ -5753,8 +5753,6 @@ static int fts_probe(struct spi_device *client)
 	input_set_capability(info->input_dev, EV_KEY, KEY_MENU);
 #endif
 
-	mutex_init(&info->diag_cmd_lock);
-
 	mutex_init(&(info->input_report_mutex));
 	mutex_init(&info->bus_mutex);
 
