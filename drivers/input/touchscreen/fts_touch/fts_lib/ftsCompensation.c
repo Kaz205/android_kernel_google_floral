@@ -313,45 +313,44 @@ static int readSelfSenseGlobalData(u64 *address, SelfSenseData *global)
 static int readSelfSenseNodeData(u64 address, SelfSenseData *node)
 {
 	int size = node->header.force_node * 2 + node->header.sense_node * 2;
-	u8 data[size];
+	u8 *data;
 	int ret;
 
-	node->ix2_fm = (u8 *)kmalloc(node->header.force_node * (sizeof(u8)),
+	node->ix2_fm = kmalloc(node->header.force_node * (sizeof(u8)),
 				     GFP_KERNEL);
-	if (node->ix2_fm == NULL) {
+	if (!node->ix2_fm) {
 		pr_err("%s: can not allocate memory for ix2_fm... ERROR %08X",
 			__func__, ERROR_ALLOC);
-		return ERROR_ALLOC;
+		goto ix2_fm_err;
 	}
-
-	node->cx2_fm = (i8 *)kmalloc(node->header.force_node * (sizeof(i8)),
+	node->cx2_fm = kmalloc(node->header.force_node * (sizeof(i8)),
 				     GFP_KERNEL);
-	if (node->cx2_fm == NULL) {
+	if (!node->cx2_fm) {
 		pr_err("%s: can not allocate memory for cx2_fm ... ERROR %08X",
 			__func__, ERROR_ALLOC);
-		kfree(node->ix2_fm);
-		return ERROR_ALLOC;
+		goto cx2_fm_err;
 	}
-	node->ix2_sn = (u8 *)kmalloc(node->header.sense_node * (sizeof(u8)),
+	node->ix2_sn = kmalloc(node->header.sense_node * (sizeof(u8)),
 				     GFP_KERNEL);
-	if (node->ix2_sn == NULL) {
+	if (!node->ix2_sn) {
 		pr_err("%s: can not allocate memory for ix2_sn ERROR %08X",
 			__func__, ERROR_ALLOC);
-		kfree(node->ix2_fm);
-		kfree(node->cx2_fm);
-		return ERROR_ALLOC;
+		goto ix2_sn_err;
 	}
-	node->cx2_sn = (i8 *)kmalloc(node->header.sense_node * (sizeof(i8)),
+	node->cx2_sn = kmalloc(node->header.sense_node * (sizeof(i8)),
 				     GFP_KERNEL);
-	if (node->cx2_sn == NULL) {
+	if (!node->cx2_sn) {
 		pr_err("%s: can not allocate memory for cx2_sn ERROR %08X",
 			__func__, ERROR_ALLOC);
-		kfree(node->ix2_fm);
-		kfree(node->cx2_fm);
-		kfree(node->ix2_sn);
-		return ERROR_ALLOC;
+		goto cx2_sn_err;
 	}
-
+	data = kcalloc(node->header.force_node * 2 + node->header.sense_node * 2,
+					sizeof(u8), GFP_KERNEL);
+	if (!data) {
+		pr_err("%s: can not allocate memory for ix2_fm... ERROR %08X",
+			__func__, ERROR_ALLOC);
+		goto data_err;
+	}
 
 	pr_info("Address for Node data = %llx\n", address);
 
@@ -362,11 +361,7 @@ static int readSelfSenseNodeData(u64 address, SelfSenseData *node)
 	if (ret < OK) {
 		pr_err("%s: error while reading data... ERROR %08X\n",
 			__func__, ret);
-		kfree(node->ix2_fm);
-		kfree(node->cx2_fm);
-		kfree(node->ix2_sn);
-		kfree(node->cx2_sn);
-		return ret;
+		goto err;
 	}
 
 	pr_info("Read node data ok!\n");
@@ -381,7 +376,20 @@ static int readSelfSenseNodeData(u64 address, SelfSenseData *node)
 				   node->header.sense_node],
 	       node->header.sense_node);
 
+	kfree(data);
 	return OK;
+err:
+	kfree(data);
+data_err:
+	kfree(node->cx2_sn);
+cx2_sn_err:
+	kfree(node->ix2_sn);
+ix2_sn_err:
+	kfree(node->cx2_fm);
+cx2_fm_err:
+	kfree(node->ix2_fm);
+ix2_fm_err:
+	return ERROR_ALLOC;
 }
 
 /**
@@ -489,27 +497,32 @@ static int readTotMutualSenseNodeData(u64 address, TotMutualSenseData *node)
 	int ret, i;
 	int size = node->header.force_node * node->header.sense_node;
 	int toRead = size * sizeof(u16);
-	u8 data[toRead];
+	u8 *data;
 
 	pr_info("Address for Node data = %llx\n", address);
 
-	node->node_data = (short *)kmalloc(size * (sizeof(short)), GFP_KERNEL);
-
-	if (node->node_data == NULL) {
+	node->node_data = kmalloc(size * (sizeof(short)), GFP_KERNEL);
+	if (!node->node_data) {
 		pr_err("%s: can not allocate node_data... ERROR %08X",
 			__func__, ERROR_ALLOC);
-		return ERROR_ALLOC;
+		goto node_data_err;
 	}
 
 	pr_info("Node Data to read %d bytes\n", size);
+
+	data = kcalloc(toRead, sizeof(u8), GFP_KERNEL);
+	if (!data) {
+		pr_err("%s: can not allocate data... ERROR %08X",
+			__func__, ERROR_ALLOC);
+		goto data_err;
+	}
 
 	ret = fts_writeReadU8UX(FTS_CMD_FRAMEBUFFER_R, BITS_16, address, data,
 				toRead, DUMMY_FRAMEBUFFER);
 	if (ret < OK) {
 		pr_err("%s: error while reading node data ERROR %08X\n",
 			__func__, ret);
-		kfree(node->node_data);
-		return ret;
+		goto err;
 	}
 	node->node_data_size = size;
 
@@ -519,7 +532,14 @@ static int readTotMutualSenseNodeData(u64 address, TotMutualSenseData *node)
 
 	pr_info("Read node data OK!\n");
 
+	kfree(data);
 	return size;
+err:
+	kfree(data);
+data_err:
+	kfree(node->node_data);
+node_data_err:
+	return ERROR_ALLOC;
 }
 
 /**
@@ -626,46 +646,45 @@ static int readTotSelfSenseNodeData(u64 address, TotSelfSenseData *node)
 {
 	int size = node->header.force_node * 2 + node->header.sense_node * 2;
 	int toRead = size * 2;	/* *2 2 bytes each node */
-	u8 data[toRead];
+	u8 *data;
 	int ret, i, j = 0;
 
-	node->ix_fm = (u16 *)kmalloc(node->header.force_node * (sizeof(u16)),
+	node->ix_fm = kmalloc(node->header.force_node * (sizeof(u16)),
 				     GFP_KERNEL);
-	if (node->ix_fm == NULL) {
+	if (!node->ix_fm) {
 		pr_err("%s: can not allocate memory for ix2_fm... ERROR %08X",
 			__func__, ERROR_ALLOC);
-		return ERROR_ALLOC;
+		goto ix_fm_err;
 	}
 
-	node->cx_fm = (short *)kmalloc(node->header.force_node *
+	node->cx_fm = kmalloc(node->header.force_node *
 				       (sizeof(short)), GFP_KERNEL);
-	if (node->cx_fm == NULL) {
+	if (!node->cx_fm) {
 		pr_err("%s: can not allocate memory for cx2_fm ... ERROR %08X",
 			__func__, ERROR_ALLOC);
-		kfree(node->ix_fm);
-		return ERROR_ALLOC;
+		goto cx_fm_err;
 	}
-	node->ix_sn = (u16 *)kmalloc(node->header.sense_node * (sizeof(u16)),
+	node->ix_sn = kmalloc(node->header.sense_node * (sizeof(u16)),
 				     GFP_KERNEL);
-	if (node->ix_sn == NULL) {
+	if (!node->ix_sn) {
 		pr_err("%s: can not allocate memory for ix2_sn ERROR %08X",
 			__func__, ERROR_ALLOC);
-		kfree(node->ix_fm);
-		kfree(node->cx_fm);
-		return ERROR_ALLOC;
+		goto ix_sn_err;
 	}
-	node->cx_sn = (short *)kmalloc(node->header.sense_node *
+	node->cx_sn = kmalloc(node->header.sense_node *
 				       (sizeof(short)), GFP_KERNEL);
-	if (node->cx_sn == NULL) {
+	if (!node->cx_sn) {
 		pr_err("%s: can not allocate memory for cx2_sn ERROR %08X",
 			__func__, ERROR_ALLOC);
-		kfree(node->ix_fm);
-		kfree(node->cx_fm);
-		kfree(node->ix_sn);
-		return ERROR_ALLOC;
+		goto cx_sn_err;
 	}
 
-
+	data = kcalloc(toRead, sizeof(u8), GFP_KERNEL);
+	if (!data) {
+		pr_err("%s: can not allocate memory for data ERROR %08X",
+			__func__, ERROR_ALLOC);
+		goto data_err;
+	}
 	pr_info("Address for Node data = %llx\n", address);
 
 	pr_info("Node Data to read %d bytes\n", size);
@@ -675,11 +694,7 @@ static int readTotSelfSenseNodeData(u64 address, TotSelfSenseData *node)
 	if (ret < OK) {
 		pr_err("%s: error while reading data... ERROR %08X\n",
 			__func__, ret);
-		kfree(node->ix_fm);
-		kfree(node->cx_fm);
-		kfree(node->ix_sn);
-		kfree(node->cx_sn);
-		return ret;
+		goto err;
 	}
 
 	pr_info("Read node data ok!\n");
@@ -709,7 +724,20 @@ static int readTotSelfSenseNodeData(u64 address, TotSelfSenseData *node)
 		pr_err("%s: parsed a wrong number of bytes %d!=%d\n",
 			__func__, j, toRead);
 
+	kfree(data);
 	return OK;
+err:
+	kfree(data);
+data_err:
+	kfree(node->cx_sn);
+cx_sn_err:
+	kfree(node->ix_sn);
+ix_sn_err:
+	kfree(node->cx_fm);
+cx_fm_err:
+	kfree(node->ix_fm);
+ix_fm_err:
+	return ERROR_ALLOC;
 }
 
 /**
@@ -848,38 +876,30 @@ static int readSensitivityCoeffNodeData(u64 address, MutualSenseCoeff *msCoeff,
 {
 	int size = msCoeff->header.force_node * msCoeff->header.sense_node +
 		   (ssCoeff->header.force_node + ssCoeff->header.sense_node);
-	u8 data[size];
+	u8 *data;
 	int ret;
 
 	msCoeff->node_data_size = msCoeff->header.force_node *
 				  msCoeff->header.sense_node;
 
-	msCoeff->ms_coeff = (u8 *)kmalloc(msCoeff->node_data_size *
+	msCoeff->ms_coeff = kmalloc(msCoeff->node_data_size *
 					  (sizeof(u8)), GFP_KERNEL);
+	if (!msCoeff->ms_coeff)
+		goto ms_coeff_err;
 
-	ssCoeff->ss_force_coeff = (u8 *)kmalloc(ssCoeff->header.force_node *
+	ssCoeff->ss_force_coeff = kmalloc(ssCoeff->header.force_node *
 						(sizeof(u8)), GFP_KERNEL);
+	if (!ssCoeff->ss_force_coeff)
+		goto ss_force_coeff_err;
 
-	ssCoeff->ss_sense_coeff = (u8 *)kmalloc(ssCoeff->header.sense_node *
+	ssCoeff->ss_sense_coeff = kmalloc(ssCoeff->header.sense_node *
 						(sizeof(u8)), GFP_KERNEL);
-	if (msCoeff->ms_coeff == NULL ||
-	    ssCoeff->ss_force_coeff == NULL ||
-	    ssCoeff->ss_sense_coeff == NULL) {
+	if (!ssCoeff->ss_sense_coeff)
+		goto ss_sense_coeff_err;
 
-		pr_err("%s: can not allocate memory for coeff ERROR %08X",
-			__func__, ERROR_ALLOC);
-
-		kfree(msCoeff->ms_coeff);
-		msCoeff->ms_coeff = NULL;
-
-		kfree(ssCoeff->ss_force_coeff);
-		ssCoeff->ss_force_coeff = NULL;
-
-		kfree(ssCoeff->ss_sense_coeff);
-		ssCoeff->ss_sense_coeff = NULL;
-
-		return ERROR_ALLOC;
-	}
+	data = kcalloc(size, sizeof(u8), GFP_KERNEL);
+	if (!data)
+		goto data_err;
 
 	pr_info("Address for Node data = %llx\n", address);
 
@@ -890,13 +910,7 @@ static int readSensitivityCoeffNodeData(u64 address, MutualSenseCoeff *msCoeff,
 	if (ret < OK) {
 		pr_err("%s: error while reading data... ERROR %08X\n",
 			__func__, ret);
-		kfree(msCoeff->ms_coeff);
-		msCoeff->ms_coeff = NULL;
-		kfree(ssCoeff->ss_force_coeff);
-		ssCoeff->ss_force_coeff = NULL;
-		kfree(ssCoeff->ss_sense_coeff);
-		ssCoeff->ss_sense_coeff = NULL;
-		return ret;
+		goto err;
 	}
 
 	pr_info("Read node data ok!\n");
@@ -908,7 +922,18 @@ static int readSensitivityCoeffNodeData(u64 address, MutualSenseCoeff *msCoeff,
 					      ssCoeff->header.force_node],
 	       ssCoeff->header.sense_node);
 
+	kfree(data);
 	return OK;
+err:
+	kfree(data);
+data_err:
+	kfree(ssCoeff->ss_sense_coeff);
+ss_sense_coeff_err:
+	kfree(ssCoeff->ss_force_coeff);
+ss_force_coeff_err:
+	kfree(msCoeff->ms_coeff);
+ms_coeff_err:
+	return ERROR_ALLOC;
 }
 
 
