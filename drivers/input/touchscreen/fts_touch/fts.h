@@ -69,7 +69,6 @@
 #define COMPUTE_INIT_METHOD  /* Allow to compute init data on phone during
 			      * production
 			      */
-#define SKIP_PRODUCTION_TEST /* Allow to skip Production test */
 
 #ifndef COMPUTE_INIT_METHOD
 #define PRE_SAVED_METHOD /* Pre-Saved Method used

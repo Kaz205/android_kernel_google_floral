@@ -76,7 +76,6 @@
 #include "fts_lib/ftsFlash.h"
 #include "fts_lib/ftsFrame.h"
 #include "fts_lib/ftsGesture.h"
-#include "fts_lib/ftsTest.h"
 #include "fts_lib/ftsTime.h"
 #include "fts_lib/ftsTool.h"
 

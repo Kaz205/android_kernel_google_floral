@@ -27,7 +27,6 @@
 #include "ftsCore.h"
 #include "ftsError.h"
 #include "ftsIO.h"
-#include "ftsTest.h"
 #include "ftsTime.h"
 #include "ftsTool.h"
 #include "ftsFrame.h"
