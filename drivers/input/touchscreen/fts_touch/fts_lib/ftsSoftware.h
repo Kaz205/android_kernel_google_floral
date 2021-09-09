@@ -144,13 +144,7 @@ typedef enum {
   * @{
   */
 #define FEAT_SEL_GLOVE		0x00	/* /< Glove Mode */
-#define FEAT_SEL_COVER		0x01	/* /< Cover Mode */
-#define FEAT_SEL_CHARGER	0x02	/* /< Charger Mode */
 #define FEAT_SEL_GESTURE	0x03	/* /< Gesture Mode */
-#define FEAT_SEL_GRIP		0x04	/* /< Grip Detection */
-#define FEAT_SEL_STYLUS		0x07	/* /< Stylus Mode
-					 * (this is a driver define, not
-					 * available in FW) */
 /** @}*/
 
 /* Feature Settings */
@@ -158,18 +152,6 @@ typedef enum {
 					 * */
 #define FEAT_DISABLE		0	/* /< General value to disable a feature
 					 * */
-
-
-/* Charger */
-/** @defgroup charger_opt	 Charger Mode Option
-  * @ingroup feat_sel
-  * Option for Charger Mode, it is a bitmask where the each bit indicate a
-  * different kind of chager
-  * @{
-  */
-#define CHARGER_CABLE	0x01	/* /< normal usb charger */
-#define CHARGER_WIRLESS 0x02	/* /< wireless charger */
-/** @}*/
 
 /* Gestures */
 /** @defgroup gesture_opt	 Gesture Mode Option

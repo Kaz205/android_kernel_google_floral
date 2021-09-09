@@ -148,20 +148,7 @@
 					  *gesture IDs */
 #endif
 
-
-#define CHARGER_MODE	/* /< enable the support to charger mode feature
-			 * (comment to disable) */
-
 #define GLOVE_MODE	/* /< enable the support to glove mode feature (comment
-			 * to disable) */
-
-#define COVER_MODE	/* /< enable the support to cover mode feature (comment
-			 * to disable) */
-
-#define STYLUS_MODE	/* /< enable the support to stylus mode feature (comment
-			 * to disable) */
-
-#define GRIP_MODE	/* /< enable the support to grip mode feature (comment
 			 * to disable) */
 
 
@@ -360,8 +347,6 @@ struct fts_touchsim{
   * - attrs           SysFS attributes \n
   * - mode            Device operating mode (bitmask) \n
   * - touch_id        Bitmask for touch id (mapped to input slots) \n
-  * - stylus_id       Bitmask for tracking the stylus touches (mapped using the
-  *                   touchId) \n
   * - timer           Timer when operating in polling mode \n
   * - power           Power on/off routine \n
   * - board           HW info retrieved from device tree \n
@@ -412,9 +397,6 @@ struct fts_ts_info {
 	unsigned int mode;	/* Device operating mode */
 				/* MSB - active or lpm */
 	unsigned long touch_id;	/* Bitmask for touch id */
-#ifdef STYLUS_MODE
-	unsigned long stylus_id;	/* Bitmask for the stylus */
-#endif
 
 	ktime_t timestamp; /* time that the event was first received from the
 		touch IC, acquired during hard interrupt, in CLOCK_MONOTONIC */
@@ -447,10 +429,6 @@ struct fts_ts_info {
 	/* switches for features */
 	int gesture_enabled;	/* Gesture during suspend */
 	int glove_enabled;	/* Glove mode */
-	int charger_enabled;	/* Charger mode */
-	int stylus_enabled;	/* Stylus mode */
-	int cover_enabled;	/* Cover mode */
-	int grip_enabled;	/* Grip mode */
 #if IS_ENABLED(CONFIG_TOUCHSCREEN_HEATMAP)
 	int heatmap_mode;	/* heatmap mode*/
 #endif

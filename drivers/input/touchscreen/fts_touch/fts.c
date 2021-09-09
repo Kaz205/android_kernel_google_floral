@@ -144,12 +144,6 @@ void release_all_touches(struct fts_ts_info *info)
 	int i;
 
 	for (i = 0; i < TOUCH_ID_MAX; i++) {
-#ifdef STYLUS_MODE
-		if (test_bit(i, &info->stylus_id))
-			type = MT_TOOL_PEN;
-		else
-			type = MT_TOOL_FINGER;
-#endif
 		input_mt_slot(info->input_dev, i);
 		input_report_abs(info->input_dev, ABS_MT_PRESSURE, 0);
 		input_mt_report_slot_state(info->input_dev, type, 0);
@@ -158,9 +152,6 @@ void release_all_touches(struct fts_ts_info *info)
 	input_report_key(info->input_dev, BTN_TOUCH, 0);
 	input_sync(info->input_dev);
 	info->touch_id = 0;
-#ifdef STYLUS_MODE
-	info->stylus_id = 0;
-#endif
 }
 
 
@@ -336,13 +327,9 @@ int check_feature_feasibility(struct fts_ts_info *info, unsigned int feature)
 /* Example based only on the feature that is going to be activated */
 	switch (feature) {
 	case FEAT_SEL_GESTURE:
-		if (info->cover_enabled == 1) {
-			res = ERROR_OP_NOT_ALLOW;
-			pr_err("%s: Feature not allowed when in Cover mode! ERROR %08X\n",
-				__func__, res);
-			/* for example here can be placed a code for disabling
-			  * the cover mode when gesture is activated */
-		}
+		res = ERROR_OP_NOT_ALLOW;
+		pr_err("%s: Feature not allowed when in Cover mode! ERROR %08X\n",
+			__func__, res);
 		break;
 
 	case FEAT_SEL_GLOVE:
@@ -418,41 +405,6 @@ static ssize_t fts_feature_enable_store(struct device *dev,
 						info->glove_enabled);
 					break;
 		#endif
-
-		#ifdef STYLUS_MODE
-				case FEAT_SEL_STYLUS:
-					info->stylus_enabled = temp2;
-					pr_info("fts_feature_enable: Stylus Enabled = %d\n",
-						info->stylus_enabled);
-					break;
-		#endif
-
-		#ifdef COVER_MODE
-				case FEAT_SEL_COVER:
-					info->cover_enabled = temp2;
-					pr_info("fts_feature_enable: Cover Enabled = %d\n",
-						info->cover_enabled);
-					break;
-		#endif
-
-		#ifdef CHARGER_MODE
-				case FEAT_SEL_CHARGER:
-					info->charger_enabled = temp2;
-					pr_info("fts_feature_enable: Charger Enabled = %d\n",
-						info->charger_enabled);
-					break;
-		#endif
-
-		#ifdef GRIP_MODE
-				case FEAT_SEL_GRIP:
-					info->grip_enabled = temp2;
-					pr_info("fts_feature_enable: Grip Enabled = %d\n",
-						info->grip_enabled);
-					break;
-		#endif
-
-
-
 				default:
 					pr_err("fts_feature_enable: Feature %08X not valid! ERROR %08X\n",
 						temp, ERROR_OP_NOT_ALLOW);
@@ -494,166 +446,6 @@ static ssize_t fts_feature_enable_show(struct device *dev,
 }
 
 #else
-
-
-#ifdef GRIP_MODE
-/**
-  * File node to set the grip mode
-  * echo 01/00 > grip_mode	to enable/disable glove mode \n
-  * cat grip_mode		to show the status of the grip_enabled switch \n
-  * echo 01/00 > grip_mode; cat grip_mode		to enable/disable grip
-  *mode
-  * and see the switch status in just one call \n
-  * the string returned in the shell is made up as follow: \n
-  * { = start byte \n
-  * X1X2X3X4 = 4 bytes in HEX format which represent the value
-  * info->grip_enabled (1 = enabled; 0= disabled) \n
-  * } = end byte
-  */
-static ssize_t fts_grip_mode_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	int count = 0;
-
-	struct fts_ts_info *info = dev_get_drvdata(dev);
-
-	pr_info("%s: grip_enabled = %d\n", __func__,
-		 info->grip_enabled);
-
-	count += scnprintf(buf + count,
-			   PAGE_SIZE - count, "{ %08X }\n",
-			   info->grip_enabled);
-
-	return count;
-}
-
-
-static ssize_t fts_grip_mode_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t count)
-{
-	char *p = (char *)buf;
-	unsigned int temp;
-	int res;
-	struct fts_ts_info *info = dev_get_drvdata(dev);
-
-	if (fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, true) < 0) {
-		res = ERROR_BUS_WR;
-		pr_err("%s: bus is not accessible.", __func__);
-		fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, false);
-		return count;
-	}
-
-	/* in case of a different elaboration of the input, just modify
-	  * this initial part of the code according to customer needs */
-	if ((count + 1) / 3 != 1)
-		pr_err("%s: Number of bytes of parameter wrong! %zu != 1 byte\n",
-			__func__, (count + 1) / 3);
-	else {
-		if (sscanf(p, "%02X ", &temp) == 1) {
-			p += 3;
-
-/* standard code that should be always used when a feature is enabled! */
-/* first step : check if the wanted feature can be enabled */
-/* second step: call fts_mode_handler to actually enable it */
-/* NOTE: Disabling a feature is always allowed by default */
-			res = check_feature_feasibility(info, FEAT_SEL_GRIP);
-			if (res >= OK || temp == FEAT_DISABLE) {
-				info->grip_enabled = temp;
-				res = fts_mode_handler(info, 1);
-				if (res < OK)
-					pr_err("%s: Error during fts_mode_handler! ERROR %08X\n",
-						__func__, res);
-			}
-		} else
-			pr_err("%s: Error when reading with sscanf!\n",
-				__func__);
-	}
-
-	fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, false);
-	return count;
-}
-#endif
-
-#ifdef CHARGER_MODE
-/**
-  * File node to set the glove mode
-  * echo XX/00 > charger_mode		to value >0 to enable
-  * (possible values: @link charger_opt Charger Options @endlink),
-  * 00 to disable charger mode \n
-  * cat charger_mode	to show the status of the charger_enabled switch \n
-  * echo 01/00 > charger_mode; cat charger_mode		to enable/disable
-  * charger mode and see the switch status in just one call \n
-  * the string returned in the shell is made up as follow: \n
-  * { = start byte \n
-  * X1X2X3X4 = 4 bytes in HEX format which represent the value
-  * info->charger_enabled (>0 = enabled; 0= disabled) \n
-  * } = end byte
-  */
-static ssize_t fts_charger_mode_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	int count = 0;
-	struct fts_ts_info *info = dev_get_drvdata(dev);
-
-	pr_info("%s: charger_enabled = %d\n", __func__,
-		 info->charger_enabled);
-
-	count += scnprintf(buf + count,
-			   PAGE_SIZE - count, "{ %08X }\n",
-			   info->charger_enabled);
-	return count;
-}
-
-
-static ssize_t fts_charger_mode_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t count)
-{
-	char *p = (char *)buf;
-	unsigned int temp;
-	int res;
-	struct fts_ts_info *info = dev_get_drvdata(dev);
-
-	if (fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, true) < 0) {
-		res = ERROR_BUS_WR;
-		pr_err("%s: bus is not accessible.\n", __func__);
-		fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, false);
-		return count;
-	}
-
-/* in case of a different elaboration of the input, just modify this
-  * initial part of the code according to customer needs */
-	if ((count + 1) / 3 != 1)
-		pr_err("%s: Number of bytes of parameter wrong! %zu != 1 byte\n",
-			__func__, (count + 1) / 3);
-	else {
-		if (sscanf(p, "%02X ", &temp) == 1) {
-			p += 3;
-
-/** standard code that should be always used when a feature is enabled!
-  * first step : check if the wanted feature can be enabled
-  * second step: call fts_mode_handler to actually enable it
-  * NOTE: Disabling a feature is always allowed by default
-  */
-			res = check_feature_feasibility(info, FEAT_SEL_CHARGER);
-			if (res >= OK || temp == FEAT_DISABLE) {
-				info->charger_enabled = temp;
-				res = fts_mode_handler(info, 1);
-				if (res < OK)
-					pr_err("%s: Error during fts_mode_handler! ERROR %08X\n",
-						__func__, res);
-			}
-		} else
-			pr_err("%s: Error when reading with sscanf!\n",
-				__func__);
-
-	}
-
-	fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, false);
-	return count;
-}
-#endif
 
 #ifdef GLOVE_MODE
 /**
@@ -727,149 +519,6 @@ static ssize_t fts_glove_mode_store(struct device *dev,
 	}
 
 	fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, false);
-	return count;
-}
-#endif
-
-
-#ifdef COVER_MODE
-/* echo 01/00 > cover_mode     to enable/disable cover mode */
-/* cat cover_mode	to show the status of the cover_enabled switch
- * (example output in the terminal = "AA00000001BB" if the switch is enabled) */
-/* echo 01/00 > cover_mode; cat cover_mode	to enable/disable cover mode and
-  * see the switch status in just one call */
-/* NOTE: the cover can be handled also using a notifier, in this case the body
-  * of these functions should be copied in the notifier callback */
-/**
-  * File node to set the cover mode
-  * echo 01/00 > cover_mode	to enable/disable cover mode \n
-  * cat cover_mode	to show the status of the cover_enabled switch \n
-  * echo 01/00 > cover_mode; cat cover_mode	to enable/disable cover mode
-  * and see the switch status in just one call \n
-  * the string returned in the shell is made up as follow: \n
-  * { = start byte \n
-  * X1X2X3X4 = 4 bytes in HEX format which is the value of info->cover_enabled
-  * (1 = enabled; 0= disabled)\n
-  * } = end byte \n
-  * NOTE: \n
-  * the cover can be handled also using a notifier, in this case the body of
-  * these functions should be copied in the notifier callback
-  */
-static ssize_t fts_cover_mode_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	int count = 0;
-	struct fts_ts_info *info = dev_get_drvdata(dev);
-
-	pr_info("%s: cover_enabled = %d\n", __func__, info->cover_enabled);
-
-	count += scnprintf(buf + count,
-			   PAGE_SIZE - count, "{ %08X }\n",
-			   info->cover_enabled);
-
-	return count;
-}
-
-
-static ssize_t fts_cover_mode_store(struct device *dev,
-				struct device_attribute *attr, const char *buf,
-				size_t count)
-{
-	char *p = (char *)buf;
-	unsigned int temp;
-	int res;
-	struct fts_ts_info *info = dev_get_drvdata(dev);
-
-	if (fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, true) < 0) {
-		res = ERROR_BUS_WR;
-		pr_err("%s: bus is not accessible.\n", __func__);
-		fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, false);
-		return count;
-	}
-
-/* in case of a different elaboration of the input, just modify this
-  * initial part of the code according to customer needs */
-	if ((count + 1) / 3 != 1)
-		pr_err("%s: Number of bytes of parameter wrong! %zu != 1 byte\n",
-			__func__, (count + 1) / 3);
-	else {
-		if (sscanf(p, "%02X ", &temp) == 1) {
-			p += 3;
-
-/* standard code that should be always used when a feature is enabled! */
-/* first step : check if the wanted feature can be enabled */
-/* second step: call fts_mode_handler to actually enable it */
-/* NOTE: Disabling a feature is always allowed by default */
-			res = check_feature_feasibility(info, FEAT_SEL_COVER);
-			if (res >= OK || temp == FEAT_DISABLE) {
-				info->cover_enabled = temp;
-				res = fts_mode_handler(info, 1);
-				if (res < OK)
-					pr_err("%s: Error during fts_mode_handler! ERROR %08X\n",
-						__func__, res);
-			}
-		} else
-			pr_err("%s: Error when reading with sscanf!\n",
-				__func__);
-	}
-
-	fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, false);
-	return count;
-}
-#endif
-
-#ifdef STYLUS_MODE
-/**
-  * File node to enable the stylus report
-  * echo 01/00 > stylus_mode		to enable/disable stylus mode \n
-  * cat stylus_mode	to show the status of the stylus_enabled switch \n
-  * echo 01/00 > stylus_mode; cat stylus_mode	to enable/disable stylus mode
-  * and see the switch status in just one call \n
-  * the string returned in the shell is made up as follow: \n
-  * { = start byte \n
-  * X1X2X3X4 = 4 bytes in HEX format which is the value of info->stylus_enabled
-  * (1 = enabled; 0= disabled)\n
-  * } = end byte
-  */
-static ssize_t fts_stylus_mode_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	int count = 0;
-	struct fts_ts_info *info = dev_get_drvdata(dev);
-
-	pr_info("%s: stylus_enabled = %d\n", __func__, info->stylus_enabled);
-
-	count += scnprintf(buf + count,
-			   PAGE_SIZE - count, "{ %08X }\n",
-			   info->stylus_enabled);
-
-	return count;
-}
-
-
-static ssize_t fts_stylus_mode_store(struct device *dev,
-				struct device_attribute *attr, const char *buf,
-				size_t count)
-{
-	char *p = (char *)buf;
-	unsigned int temp;
-	struct fts_ts_info *info = dev_get_drvdata(dev);
-
-
-/* in case of a different elaboration of the input, just modify this
-  * initial part of the code according to customer needs */
-	if ((count + 1) / 3 != 1)
-		pr_err("%s: Number of bytes of parameter wrong! %zu != 1 byte\n",
-			__func__, (count + 1) / 3);
-	else {
-		if (sscanf(p, "%02X ", &temp) == 1) {
-			p += 3;
-			info->stylus_enabled = temp;
-		} else
-			pr_err("%s: Error when reading with sscanf!\n",
-				__func__);
-	}
-
 	return count;
 }
 #endif
@@ -1295,30 +944,9 @@ static DEVICE_ATTR(feature_enable, 0664,
 		   fts_feature_enable_show, fts_feature_enable_store);
 #else
 
-
-#ifdef GRIP_MODE
-static DEVICE_ATTR(grip_mode, 0664, fts_grip_mode_show,
-		   fts_grip_mode_store);
-#endif
-
-#ifdef CHARGER_MODE
-static DEVICE_ATTR(charger_mode, 0664,
-		   fts_charger_mode_show, fts_charger_mode_store);
-#endif
-
 #ifdef GLOVE_MODE
 static DEVICE_ATTR(glove_mode, 0664,
 		   fts_glove_mode_show, fts_glove_mode_store);
-#endif
-
-#ifdef COVER_MODE
-static DEVICE_ATTR(cover_mode, 0664,
-		   fts_cover_mode_show, fts_cover_mode_store);
-#endif
-
-#ifdef STYLUS_MODE
-static DEVICE_ATTR(stylus_mode, 0664,
-		   fts_stylus_mode_show, fts_stylus_mode_store);
 #endif
 
 #endif
@@ -1339,20 +967,8 @@ static struct attribute *fts_attr_group[] = {
 	&dev_attr_feature_enable.attr,
 #else
 
-#ifdef GRIP_MODE
-	&dev_attr_grip_mode.attr,
-#endif
-#ifdef CHARGER_MODE
-	&dev_attr_charger_mode.attr,
-#endif
 #ifdef GLOVE_MODE
 	&dev_attr_glove_mode.attr,
-#endif
-#ifdef COVER_MODE
-	&dev_attr_cover_mode.attr,
-#endif
-#ifdef STYLUS_MODE
-	&dev_attr_stylus_mode.attr,
 #endif
 
 #endif
@@ -1461,18 +1077,6 @@ static bool fts_enter_pointer_event_handler(struct fts_ts_info *info, unsigned
 		y = info->board->y_axis_max;
 
 	switch (touchType) {
-#ifdef STYLUS_MODE
-	case TOUCH_TYPE_STYLUS:
-		pr_info("%s : It is a stylus!\n", __func__);
-		if (info->stylus_enabled == 1) {
-			/* if stylus_enabled is not ==1
-			  * it will be reported as normal touch */
-			tool = MT_TOOL_PEN;
-			touch_condition = 1;
-			__set_bit(touchId, &info->stylus_id);
-			break;
-		}
-#endif
 	/* TODO: customer can implement a different strategy for each kind of
 	 * touch */
 	case TOUCH_TYPE_FINGER:
@@ -1552,18 +1156,6 @@ static bool fts_leave_pointer_event_handler(struct fts_ts_info *info, unsigned
 	touchId = (event[1] & 0xF0) >> 4;
 
 	switch (touchType) {
-#ifdef STYLUS_MODE
-	case TOUCH_TYPE_STYLUS:
-		pr_info("%s : It is a stylus!\n", __func__);
-		if (info->stylus_enabled == 1) {
-			/* if stylus_enabled is not ==1 it will be reported as
-			 * normal touch */
-			tool = MT_TOOL_PEN;
-			__clear_bit(touchId, &info->stylus_id);
-			break;
-		}
-#endif
-
 	case TOUCH_TYPE_FINGER:
 	/* pr_info("%s : It is a finger!\n", __func__); */
 	case TOUCH_TYPE_GLOVE:
@@ -3426,70 +3018,6 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 		}
 
 #endif
-
-#ifdef COVER_MODE
-		if ((info->cover_enabled == FEAT_ENABLE &&
-		     isSystemResettedUp()) || force == 1) {
-			pr_debug("%s: Cover Mode setting...\n", __func__);
-			settings[0] = info->cover_enabled;
-			ret = setFeatures(FEAT_SEL_COVER, settings, 1);
-			if (ret < OK)
-				pr_err("%s: error during setting COVER_MODE! ERROR %08X\n",
-					__func__, ret);
-			res |= ret;
-
-			if (ret >= OK && info->cover_enabled == FEAT_ENABLE) {
-				fromIDtoMask(FEAT_SEL_COVER, (u8 *)&info->mode,
-					     sizeof(info->mode));
-				pr_debug("%s: COVER_MODE Enabled!\n", __func__);
-			} else
-				pr_debug("%s: COVER_MODE Disabled!\n", __func__);
-		}
-#endif
-#ifdef CHARGER_MODE
-		if ((info->charger_enabled > 0 && isSystemResettedUp()) ||
-		    force == 1) {
-			pr_debug("%s: Charger Mode setting...\n", __func__);
-
-			settings[0] = info->charger_enabled;
-			ret = setFeatures(FEAT_SEL_CHARGER, settings, 1);
-			if (ret < OK)
-				pr_err("%s: error during setting CHARGER_MODE! ERROR %08X\n",
-					__func__, ret);
-			res |= ret;
-
-			if (ret >= OK && info->charger_enabled == FEAT_ENABLE) {
-				fromIDtoMask(FEAT_SEL_CHARGER,
-					     (u8 *)&info->mode,
-					     sizeof(info->mode));
-				pr_debug("%s: CHARGER_MODE Enabled!\n",
-					__func__);
-			} else
-				pr_debug("%s: CHARGER_MODE Disabled!\n",
-					__func__);
-		}
-#endif
-
-
-#ifdef GRIP_MODE
-		if ((info->grip_enabled == FEAT_ENABLE &&
-		     isSystemResettedUp()) || force == 1) {
-			pr_debug("%s: Grip Mode setting...\n", __func__);
-			settings[0] = info->grip_enabled;
-			ret = setFeatures(FEAT_SEL_GRIP, settings, 1);
-			if (ret < OK)
-				pr_err("%s: error during setting GRIP_MODE! ERROR %08X\n",
-					__func__, ret);
-			res |= ret;
-
-			if (ret >= OK && info->grip_enabled == FEAT_ENABLE) {
-				fromIDtoMask(FEAT_SEL_GRIP, (u8 *)&info->mode,
-					     sizeof(info->mode));
-				pr_debug("%s: GRIP_MODE Enabled!\n", __func__);
-			} else
-				pr_debug("%s: GRIP_MODE Disabled!\n", __func__);
-		}
-#endif
 		/* If some selective scan want to be enabled can be done
 		  * an or of the following options
 		  */
@@ -4287,9 +3815,6 @@ static int fts_probe(struct spi_device *client)
 	skip_5_1 = 1;
 	/* track slots */
 	info->touch_id = 0;
-#ifdef STYLUS_MODE
-	info->stylus_id = 0;
-#endif
 
 
 	/* init feature switches (by default all the features are disable,
@@ -4297,9 +3822,6 @@ static int fts_probe(struct spi_device *client)
 	  * set the corresponding value to 1)*/
 	info->gesture_enabled = 0;
 	info->glove_enabled = 0;
-	info->charger_enabled = 0;
-	info->cover_enabled = 0;
-	info->grip_enabled = 0;
 
 	info->resume_bit = 1;
 	info->notifier = fts_noti_block;
