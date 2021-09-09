@@ -135,8 +135,6 @@
 
 /* **** FEATURES USED IN THE IC **** */
 /* Enable the support of keys */
-/* #define PHONE_KEY */
-
 #define GESTURE_MODE	/* /< enable the support of the gestures */
 #ifdef GESTURE_MODE
 	#define USE_GESTURE_MASK	/* /< the gestures to select are

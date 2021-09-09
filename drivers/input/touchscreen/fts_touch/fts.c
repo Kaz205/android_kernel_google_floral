@@ -123,11 +123,6 @@ extern int gesture_coords_reported;
 extern struct mutex gestureMask_mutex;
 #endif
 
-#ifdef PHONE_KEY
-static u8 key_mask;	/* /< store the last update of the key mask
-				  * published by the IC */
-#endif
-
 static int fts_init_sensing(struct fts_ts_info *info);
 static int fts_mode_handler(struct fts_ts_info *info, int force);
 
@@ -1154,52 +1149,6 @@ static bool fts_controller_ready_event_handler(struct fts_ts_info *info,
 	return false;
 }
 
-/* key events reported in the user report */
-#ifdef PHONE_KEY
-/* TODO: the customer should handle the events coming from the keys according
- * his needs
-  * (this is just an sample code that report the click of a button after a
-  * press->release action) */
-/**
-  * Event handler for status events (EVT_TYPE_USER_KEY)
-  * Handle keys update events, the third byte of the event is a bitmask,
-  * if the bit set means that the corresponding key is pressed.
-  */
-static void fts_key_event_handler(struct fts_ts_info *info,
-				  unsigned char *event)
-{
-	/* int value; */
-	pr_info("%s: Received event %02X %02X %02X %02X %02X %02X %02X %02X\n",
-		__func__, event[0], event[1], event[2], event[3], event[4],
-		event[5], event[6], event[7]);
-
-	if (event[0] == EVT_ID_USER_REPORT && event[1] == EVT_TYPE_USER_KEY) {
-		/* event[2] contain the bitmask of the keys that are actually
-		 * pressed */
-
-		if ((event[2] & FTS_KEY_0) == 0 && (key_mask & FTS_KEY_0) > 0) {
-			pr_info("%s: Button HOME pressed and released!\n",
-				__func__);
-			fts_input_report_key(info, KEY_HOMEPAGE);
-		}
-
-		if ((event[2] & FTS_KEY_1) == 0 && (key_mask & FTS_KEY_1) > 0) {
-			pr_info("%s: Button Back pressed and released!\n",
-				__func__);
-			fts_input_report_key(info, KEY_BACK);
-		}
-
-		if ((event[2] & FTS_KEY_2) == 0 && (key_mask & FTS_KEY_2) > 0) {
-			pr_info("%s: Button Menu pressed!\n", __func__);
-			fts_input_report_key(info, KEY_MENU);
-		}
-
-		key_mask = event[2];
-	} else
-		pr_err("%s: Invalid event passed as argument!\n", __func__);
-}
-#endif
-
 /* gesture event must be handled in the user event handler */
 #ifdef GESTURE_MODE
 /* TODO: Customer should implement their own actions in respond of a gesture
@@ -1351,12 +1300,6 @@ static bool fts_user_report_event_handler(struct fts_ts_info *info, unsigned
 					  char *event)
 {
 	switch (event[1]) {
-#ifdef PHONE_KEY
-	case EVT_TYPE_USER_KEY:
-		fts_key_event_handler(info, event);
-		break;
-#endif
-
 	case EVT_TYPE_USER_PROXIMITY:
 		if (event[2] == 0)
 			pr_err("%s No proximity!\n", __func__);
@@ -3322,13 +3265,6 @@ static int fts_probe(struct spi_device *client)
 
 	input_set_capability(info->input_dev, EV_KEY, KEY_LEFTBRACE);
 	input_set_capability(info->input_dev, EV_KEY, KEY_RIGHTBRACE);
-#endif
-
-#ifdef PHONE_KEY
-	/* KEY associated to the touch screen buttons */
-	input_set_capability(info->input_dev, EV_KEY, KEY_HOMEPAGE);
-	input_set_capability(info->input_dev, EV_KEY, KEY_BACK);
-	input_set_capability(info->input_dev, EV_KEY, KEY_MENU);
 #endif
 
 	mutex_init(&(info->input_report_mutex));
