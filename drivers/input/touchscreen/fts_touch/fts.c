@@ -1149,6 +1149,12 @@ static bool fts_controller_ready_event_handler(struct fts_ts_info *info,
 	return false;
 }
 
+static bool fts_status_event_handler(struct fts_ts_info *info, unsigned
+				     char *event)
+{
+	return false;
+}
+
 /* gesture event must be handled in the user event handler */
 #ifdef GESTURE_MODE
 /* TODO: Customer should implement their own actions in respond of a gesture
@@ -2252,6 +2258,7 @@ static int fts_interrupt_install(struct fts_ts_info *info)
 	install_handler(info, MOTION_POINT, motion_pointer);
 	install_handler(info, ERROR, error);
 	install_handler(info, CONTROLLER_READY, controller_ready);
+	install_handler(info, STATUS_UPDATE, status);
 	install_handler(info, USER_REPORT, user_report);
 
 	/* disable interrupts in any case */
