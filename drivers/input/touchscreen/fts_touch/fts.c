@@ -3260,19 +3260,6 @@ static int fts_interrupt_install(struct fts_ts_info *info)
 	return error;
 }
 
-/**
-  *	Clean the dispatch table and the free the IRQ.
-  *	This function is called when the driver need to be removed
-  */
-static void fts_interrupt_uninstall(struct fts_ts_info *info)
-{
-	fts_enableInterrupt(false);
-
-	kfree(info->event_dispatch_table);
-
-	free_irq(info->client->irq, info);
-}
-
 /**@}*/
 
 /**
@@ -4562,86 +4549,6 @@ ProbeErrorExit_0:
 	return error;
 }
 
-
-/**
-  * Clear and free all the resources associated to the driver.
-  * This function is called when the driver need to be removed.
-  */
-#ifdef I2C_INTERFACE
-static int fts_remove(struct i2c_client *client)
-{
-#else
-static int fts_remove(struct spi_device *client)
-{
-#endif
-
-	struct fts_ts_info *info = dev_get_drvdata(&(client->dev));
-
-	/* Force the bus active throughout removal of the client */
-	fts_set_bus_ref(info, FTS_BUS_REF_FORCE_ACTIVE, true);
-
-	pr_info("%s\n", __func__);
-
-#ifdef CONFIG_TOUCHSCREEN_TBN
-	tbn_cleanup(info->tbn);
-#endif
-
-	/* sysfs stuff */
-	sysfs_remove_group(&client->dev.kobj, &info->attrs);
-
-	/* remove interrupt and event handlers */
-	fts_interrupt_uninstall(info);
-
-#ifdef CONFIG_TOUCHSCREEN_OFFLOAD
-	touch_offload_cleanup(&info->offload);
-#endif
-
-#if IS_ENABLED(CONFIG_TOUCHSCREEN_HEATMAP)
-	heatmap_remove(&info->v4l2);
-#endif
-
-	pm_qos_remove_request(&info->pm_touch_req);
-	pm_qos_remove_request(&info->pm_spi_req);
-
-	msm_drm_unregister_client(&info->notifier);
-
-	/* unregister the device */
-	input_unregister_device(info->input_dev);
-
-	/* input_free_device(info->input_dev ); */
-
-	/* Remove the work thread */
-	destroy_workqueue(info->event_wq);
-	wakeup_source_trash(&info->wakesrc);
-
-	if(info->touchsim.wq)
-		destroy_workqueue(info->touchsim.wq);
-
-	if (info->fwu_workqueue)
-		destroy_workqueue(info->fwu_workqueue);
-
-	fts_enable_reg(info, false);
-	fts_get_reg(info, false);
-
-	/* free gpio */
-	if (gpio_is_valid(info->board->irq_gpio))
-		gpio_free(info->board->irq_gpio);
-	if (gpio_is_valid(info->board->switch_gpio))
-		gpio_free(info->board->switch_gpio);
-	if (gpio_is_valid(info->board->reset_gpio))
-		gpio_free(info->board->reset_gpio);
-	if (gpio_is_valid(info->board->disp_rate_gpio))
-		gpio_free(info->board->disp_rate_gpio);
-
-	/* free any extinfo */
-	kfree(info->extinfo.data);
-
-	/* free all */
-	kfree(info);
-
-	return OK;
-}
-
 #ifdef CONFIG_PM
 static int fts_pm_suspend(struct device *dev)
 {
@@ -4693,7 +4600,6 @@ static struct i2c_driver fts_i2c_driver = {
 #endif
 	},
 	.probe			= fts_probe,
-	.remove			= fts_remove,
 	.id_table		= fts_device_id,
 };
 #else
@@ -4707,7 +4613,6 @@ static struct spi_driver fts_spi_driver = {
 #endif
 	},
 	.probe			= fts_probe,
-	.remove			= fts_remove,
 };
 #endif
 
