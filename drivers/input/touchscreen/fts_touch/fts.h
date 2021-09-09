@@ -123,9 +123,6 @@
 							  *array */
 #endif
 
-/* #define USE_ONE_FILE_NODE */	/* /< allow to enable/disable all the features
-  * just using one file node */
-
 #ifndef FW_UPDATE_ON_PROBE
 #define EXP_FN_WORK_DELAY_MS 1000	/* /< time in ms elapsed after the probe
 					  * to start the work which execute FW

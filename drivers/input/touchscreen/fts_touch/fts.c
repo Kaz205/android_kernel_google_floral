@@ -115,9 +115,6 @@ extern struct mutex gestureMask_mutex;
 
 char fts_ts_phys[64];	/* /< buffer which store the input device name
 			  *	assigned by the kernel */
-#ifdef USE_ONE_FILE_NODE
-static int feature_feasibility = ERROR_OP_NOT_ALLOW;
-#endif
 #ifdef GESTURE_MODE
 static u8 mask[GESTURE_MASK_SIZE + 2];
 extern u16 gesture_coordinates_x[GESTURE_MAX_COORDS_PAIRS_REPORT];
@@ -351,102 +348,6 @@ int check_feature_feasibility(struct fts_ts_info *info, unsigned int feature)
 	return res;
 }
 
-#ifdef USE_ONE_FILE_NODE
-/**
-  * File node to enable some feature
-  * echo XX 00/01 > feature_enable		to enable/disable XX
-  * (possible values @link feat_opt Feature Selection Options @endlink) feature
-  * cat feature_enable		to show the result of enabling/disabling process
-  * echo 01/00 > feature_enable; cat feature_enable		to perform
-  * both actions stated before in just one call \n
-  * the string returned in the shell is made up as follow: \n
-  * { = start byte \n
-  * X1X2X3X4 = 4 bytes in HEX format which represent an error code (00000000 =
-  * no error) \n
-  * } = end byte
-  */
-static ssize_t fts_feature_enable_store(struct device *dev,
-				struct device_attribute *attr, const char *buf,
-				size_t count)
-{
-	struct fts_ts_info *info = dev_get_drvdata(dev);
-	char *p = (char *)buf;
-	unsigned int temp, temp2;
-	int res = OK;
-
-	if (fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, true) < 0) {
-		res = ERROR_BUS_WR;
-		pr_err("%s: bus is not accessible.", __func__);
-		fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, false);
-		return count;
-	}
-
-	if ((count - 2 + 1) / 3 != 1)
-		pr_err("fts_feature_enable: Number of parameter wrong! %d > %d\n",
-			(count - 2 + 1) / 3, 1);
-	else {
-		if (sscanf(p, "%02X %02X ", &temp, &temp2) == 2) {
-			p += 3;
-			res = check_feature_feasibility(info, temp);
-			if (res >= OK) {
-				switch (temp) {
-		#ifdef GESTURE_MODE
-				case FEAT_SEL_GESTURE:
-					info->gesture_enabled = temp2;
-					pr_info("fts_feature_enable: Gesture Enabled = %d\n",
-						info->gesture_enabled);
-					break;
-		#endif
-
-		#ifdef GLOVE_MODE
-				case FEAT_SEL_GLOVE:
-					info->glove_enabled = temp2;
-					pr_info("fts_feature_enable: Glove Enabled = %d\n",
-						info->glove_enabled);
-					break;
-		#endif
-				default:
-					pr_err("fts_feature_enable: Feature %08X not valid! ERROR %08X\n",
-						temp, ERROR_OP_NOT_ALLOW);
-					res = ERROR_OP_NOT_ALLOW;
-				}
-				feature_feasibility = res;
-			}
-			if (feature_feasibility >= OK)
-				feature_feasibility = fts_mode_handler(info, 1);
-			else
-				pr_err("%s: Call echo XX 00/01 > feature_enable with a correct feature value (XX)! ERROR %08X\n",
-					__func__, res);
-		} else
-			pr_err("%s: Error when reading with sscanf!\n",
-				__func__);
-	}
-
-	fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, false);
-	return count;
-}
-
-
-
-static ssize_t fts_feature_enable_show(struct device *dev,
-				       struct device_attribute *attr, char *buf)
-{
-	int count = 0;
-
-	if (feature_feasibility < OK)
-		pr_err("%s: Call before echo XX 00/01 > feature_enable with a correct feature value (XX)! ERROR %08X\n",
-			__func__, feature_feasibility);
-
-	count += scnprintf(buf + count,
-			   PAGE_SIZE - count, "{ %08X }\n",
-			   feature_feasibility);
-
-	feature_feasibility = ERROR_OP_NOT_ALLOW;
-	return count;
-}
-
-#else
-
 #ifdef GLOVE_MODE
 /**
   * File node to set the glove mode
@@ -521,8 +422,6 @@ static ssize_t fts_glove_mode_store(struct device *dev,
 	fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, false);
 	return count;
 }
-#endif
-
 #endif
 
 /***************************************** GESTURES
@@ -939,16 +838,10 @@ static ssize_t fts_heatmap_mode_show(struct device *dev,
 static DEVICE_ATTR(heatmap_mode, 0664, fts_heatmap_mode_show,
 		   fts_heatmap_mode_store);
 #endif
-#ifdef USE_ONE_FILE_NODE
-static DEVICE_ATTR(feature_enable, 0664,
-		   fts_feature_enable_show, fts_feature_enable_store);
-#else
 
 #ifdef GLOVE_MODE
 static DEVICE_ATTR(glove_mode, 0664,
 		   fts_glove_mode_show, fts_glove_mode_store);
-#endif
-
 #endif
 
 #ifdef GESTURE_MODE
@@ -963,14 +856,9 @@ static struct attribute *fts_attr_group[] = {
 #if IS_ENABLED(CONFIG_TOUCHSCREEN_HEATMAP)
 	&dev_attr_heatmap_mode.attr,
 #endif
-#ifdef USE_ONE_FILE_NODE
-	&dev_attr_feature_enable.attr,
-#else
 
 #ifdef GLOVE_MODE
 	&dev_attr_glove_mode.attr,
-#endif
-
 #endif
 
 #ifdef GESTURE_MODE
