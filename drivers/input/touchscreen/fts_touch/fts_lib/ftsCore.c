@@ -62,7 +62,6 @@ int initCore(struct fts_ts_info *info)
 	pr_info("%s: Initialization of the Core...\n", __func__);
 	ret |= openChannel(info->client);
 	ret |= resetErrorList();
-	ret |= initTestToDo();
 	setResetGpio(info->board->reset_gpio);
 	if (ret < OK)
 		pr_err("%s: Initialization Core ERROR %08X!\n",

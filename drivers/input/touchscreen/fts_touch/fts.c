@@ -106,9 +106,9 @@
 #define TYPE_B_PROTOCOL
 #endif
 
+#define NO_INIT	0
 
 extern SysInfo systemInfo;
-extern TestToDo tests;
 #ifdef GESTURE_MODE
 extern struct mutex gestureMask_mutex;
 #endif
@@ -133,8 +133,6 @@ static u8 key_mask;	/* /< store the last update of the key mask
 
 static int fts_init_sensing(struct fts_ts_info *info);
 static int fts_mode_handler(struct fts_ts_info *info, int force);
-
-static int fts_chip_initialization(struct fts_ts_info *info, int init_type);
 
 /**
   * Release all the touches in the linux input subsystem
@@ -2955,10 +2953,7 @@ static int fts_identify_panel(struct fts_ts_info *info)
 	if (info->board->panel)
 		of_property_read_string_index(np, "st,limits_names",
 					      panel_index, &name);
-	if (!name)
-		info->board->limits_name = LIMITS_FILE;
-	else
-		info->board->limits_name = name;
+	info->board->limits_name = name;
 	pr_info("limits name = %s\n", info->board->limits_name);
 
 	inverted = 0;
@@ -3118,25 +3113,6 @@ static int fts_fw_update(struct fts_ts_info *info)
 	}
 
 out:
-
-	if (init_type != NO_INIT) { /* initialization status not correct or
-				     * after FW complete update, do
-				     * initialization.
-				     */
-		error = fts_chip_initialization(info, init_type);
-		if (error < OK) {
-			pr_err("%s: Cannot initialize the chip ERROR %08X\n",
-				__func__, error);
-		}
-
-		/* Reset after initialization */
-		ret = fts_system_reset();
-		if (ret < OK) {
-			pr_err("%s: Reset failed, ERROR %08X\n", __func__,
-			       ret);
-		}
-	}
-
 	error = fts_init_sensing(info);
 	if (error < OK) {
 		pr_err("Cannot initialize the hardware device ERROR %08X\n",
@@ -3163,42 +3139,6 @@ static void fts_fw_update_auto(struct work_struct *work)
 	fts_fw_update(info);
 	fts_set_bus_ref(info, FTS_BUS_REF_FW_UPDATE, false);
 }
-
-/* TODO: define if need to do the full mp at the boot */
-/**
-  *	Execute the initialization of the IC (supporting a retry mechanism),
-  * checking also the resulting data
-  *	@see  production_test_main()
-  */
-static int fts_chip_initialization(struct fts_ts_info *info, int init_type)
-{
-	int ret2 = 0;
-	int retry;
-	int initretrycnt = 0;
-	const char *limits_file = info->board->limits_name;
-
-	/* initialization error, retry initialization */
-	for (retry = 0; retry < RETRY_INIT_BOOT; retry++) {
-#ifndef COMPUTE_INIT_METHOD
-		ret2 = production_test_initialization(init_type);
-#else
-		ret2 = production_test_main(limits_file, 1, init_type, &tests,
-			MP_FLAG_BOOT);
-#endif
-		if (ret2 == OK)
-			break;
-		initretrycnt++;
-		pr_err("initialization cycle count = %04d - ERROR %08X\n",
-			initretrycnt, ret2);
-		fts_chip_powercycle(info);
-	}
-
-	if (ret2 < OK)	/* initialization error */
-		pr_err("fts initialization failed %d times\n", RETRY_INIT_BOOT);
-
-	return ret2;
-}
-
 
 static irqreturn_t fts_isr(int irq, void *handle)
 {
