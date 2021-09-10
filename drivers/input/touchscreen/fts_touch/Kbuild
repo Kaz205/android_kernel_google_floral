@@ -2,7 +2,7 @@
 obj-$(CONFIG_TOUCHSCREEN_FTS)	+= ftm5.o
 ftm5-objs = fts.o
 ftm5-objs += \
-	fts_lib/ftsCompensation.o fts_lib/ftsCore.o fts_lib/ftsError.o \
+	fts_lib/ftsCore.o fts_lib/ftsError.o \
 	fts_lib/ftsFrame.o fts_lib/ftsIO.o \
 	fts_lib/ftsTool.o fts_lib/ftsFlash.o
 
