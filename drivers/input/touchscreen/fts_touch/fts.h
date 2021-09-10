@@ -134,15 +134,6 @@
 
 
 /* **** FEATURES USED IN THE IC **** */
-/* Enable the support of keys */
-#define GESTURE_MODE	/* /< enable the support of the gestures */
-#ifdef GESTURE_MODE
-	#define USE_GESTURE_MASK	/* /< the gestures to select are
-					 * referred using
-					  * a gesture bitmask instead of their
-					  *gesture IDs */
-#endif
-
 #define GLOVE_MODE	/* /< enable the support to glove mode feature (comment
 			 * to disable) */
 
@@ -422,7 +413,6 @@ struct fts_ts_info {
 	struct mutex input_report_mutex;	/* Mutex for pressure report */
 
 	/* switches for features */
-	int gesture_enabled;	/* Gesture during suspend */
 	int glove_enabled;	/* Glove mode */
 #if IS_ENABLED(CONFIG_TOUCHSCREEN_HEATMAP)
 	int heatmap_mode;	/* heatmap mode*/

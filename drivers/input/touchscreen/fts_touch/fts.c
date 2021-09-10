@@ -75,7 +75,6 @@
 #include "fts_lib/ftsError.h"
 #include "fts_lib/ftsFlash.h"
 #include "fts_lib/ftsFrame.h"
-#include "fts_lib/ftsGesture.h"
 #include "fts_lib/ftsTime.h"
 #include "fts_lib/ftsTool.h"
 
@@ -109,19 +108,9 @@
 #define NO_INIT	0
 
 extern SysInfo systemInfo;
-#ifdef GESTURE_MODE
-extern struct mutex gestureMask_mutex;
-#endif
 
 char fts_ts_phys[64];	/* /< buffer which store the input device name
 			  *	assigned by the kernel */
-#ifdef GESTURE_MODE
-static u8 mask[GESTURE_MASK_SIZE + 2];
-extern u16 gesture_coordinates_x[GESTURE_MAX_COORDS_PAIRS_REPORT];
-extern u16 gesture_coordinates_y[GESTURE_MAX_COORDS_PAIRS_REPORT];
-extern int gesture_coords_reported;
-extern struct mutex gestureMask_mutex;
-#endif
 
 static int fts_init_sensing(struct fts_ts_info *info);
 static int fts_mode_handler(struct fts_ts_info *info, int force);
@@ -264,85 +253,6 @@ END:
 
 /***************************************** FEATURES
   ***************************************************/
-
-/* TODO: edit this function according to the features policy to allow during
-  * the screen on/off, following is shown an example but check always with ST
-  * for more details */
-/**
-  * Check if there is any conflict in enable/disable a particular feature
-  * considering the features already enabled and running
-  * @param info pointer to fts_ts_info which contains info about the device
-  * and its hw setup
-  * @param feature code of the feature that want to be tested
-  * @return OK if is possible to enable/disable feature, ERROR_OP_NOT_ALLOW
-  * in case of any other conflict
-  */
-int check_feature_feasibility(struct fts_ts_info *info, unsigned int feature)
-{
-	int res = OK;
-
-/* Example based on the status of the screen and on the feature
-  * that is trying to enable */
-	/*res=ERROR_OP_NOT_ALLOW;
-	  * if(info->resume_bit ==0){
-	  *      switch(feature){
-	  #ifdef GESTURE_MODE
-	  *              case FEAT_SEL_GESTURE:
-	  *                      res = OK;
-	  *              break;
-	  #endif
-	  *              default:
-	  *                      pr_err("%s: Feature not allowed in this
-	  * operating mode! ERROR %08X\n", __func__, res);
-	  *              break;
-	  *
-	  *      }
-	  * }else{
-	  *      switch(feature){
-	  #ifdef GESTURE_MODE
-	  *              case FEAT_SEL_GESTURE:
-	  #endif
-	  *              case FEAT__SEL_GLOVE: // glove mode can only activate
-	  *during sense on
-	  *                      res = OK;
-	  *              break;
-	  *
-	  *              default:
-	  *                      pr_err("%s: Feature not allowed in this
-	  * operating mode! ERROR %08X\n", __func__, res);
-	  *              break;
-	  *
-	  *      }
-	  * }*/
-
-
-/* Example based only on the feature that is going to be activated */
-	switch (feature) {
-	case FEAT_SEL_GESTURE:
-		res = ERROR_OP_NOT_ALLOW;
-		pr_err("%s: Feature not allowed when in Cover mode! ERROR %08X\n",
-			__func__, res);
-		break;
-
-	case FEAT_SEL_GLOVE:
-		if (info->gesture_enabled == 1) {
-			res = ERROR_OP_NOT_ALLOW;
-			pr_err("%s: Feature not allowed when Gestures enabled! ERROR %08X\n",
-				__func__, res);
-			/* for example here can be placed a code for disabling
-			  * the gesture mode when cover is activated
-			  * (that means that cover mode has
-			  * an higher priority on gesture mode) */
-		}
-		break;
-
-	default:
-		pr_info("%s: Feature Allowed!\n", __func__);
-	}
-
-	return res;
-}
-
 #ifdef GLOVE_MODE
 /**
   * File node to set the glove mode
@@ -401,7 +311,8 @@ static ssize_t fts_glove_mode_store(struct device *dev,
 /* first step : check if the wanted feature can be enabled */
 /* second step: call fts_mode_handler to actually enable it */
 /* NOTE: Disabling a feature is always allowed by default */
-			res = check_feature_feasibility(info, FEAT_SEL_GLOVE);
+			/* Temp hax */
+			res = OK;
 			if (res >= OK || temp == FEAT_DISABLE) {
 				info->glove_enabled = temp;
 				res = fts_mode_handler(info, 1);
@@ -415,314 +326,6 @@ static ssize_t fts_glove_mode_store(struct device *dev,
 	}
 
 	fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, false);
-	return count;
-}
-#endif
-
-/***************************************** GESTURES
-  ***************************************************/
-#ifdef GESTURE_MODE
-#ifdef USE_GESTURE_MASK	/* if this define is used, a gesture bit mask
-			  * is used as method to select the gestures to
-			  * enable/disable */
-
-/**
-  * File node used by the host to set the gesture mask to enable or disable
-  * echo EE X1 X2 ~~ > gesture_mask  set the gesture to disable/enable;
-  * EE = 00(disable) or 01(enable) \n
-  * X1 ~~  = gesture mask (example 06 00 ~~ 00 this gesture mask represents
-  * the gestures with ID = 1 and 2) can be specified
-  * from 1 to GESTURE_MASK_SIZE bytes, \n
-  * if less than GESTURE_MASK_SIZE bytes are passed as arguments,
-  * the omit bytes of the mask maintain the previous settings  \n
-  * if one or more gestures is enabled the driver will automatically
-  * enable the gesture mode, If all the gestures are disabled the driver
-  * automatically will disable the gesture mode \n
-  * cat gesture_mask   set inside the specified mask and return an error code
-  * for the operation \n
-  * the string returned in the shell is made up as follow: \n
-  * { = start byte \n
-  * X1X2X3X4 = 4 bytes in HEX format which represent an error code for enabling
-  * the mask (00000000 = no error)\n
-  * } = end byte \n\n
-  * if USE_GESTURE_MASK is not define the usage of the function become: \n\n
-  * echo EE X1 X2 ~~ > gesture_mask   set the gesture to disable/enable;
-  * EE = 00(disable) or 01(enable) \n
-  * X1 ~~ = gesture IDs (example 01 02 05 represent the gestures with ID = 1, 2
-  * and 5)
-  * there is no limit of the IDs passed as arguments, (@link gesture_opt Gesture
-  * IDs @endlink) \n
-  * if one or more gestures is enabled the driver will automatically enable
-  * the gesture mode. If all the gestures are disabled the driver automatically
-  * will disable the gesture mode. \n
-  * cat gesture_mask     to show the status of the gesture enabled switch \n
-  * the string returned in the shell is made up as follow: \n
-  * { = start byte \n
-  * X1X2X3X4 = 4 bytes in HEX format which is the value of info->gesture_enabled
-  * (1 = enabled; 0= disabled)\n
-  * } = end byte
-  */
-static ssize_t fts_gesture_mask_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	int count = 0, res, temp;
-	struct fts_ts_info *info = dev_get_drvdata(dev);
-
-	if (fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, true) < 0) {
-		res = ERROR_BUS_WR;
-		pr_err("%s: bus is not accessible.\n", __func__);
-		scnprintf(buf, PAGE_SIZE, "{ %08X }\n", res);
-		fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, false);
-		return count;
-	}
-
-	if (mask[0] == 0) {
-		res = ERROR_OP_NOT_ALLOW;
-		pr_err("%s: Call before echo enable/disable xx xx .... > gesture_mask with a correct number of parameters! ERROR %08X\n",
-			__func__, res);
-	} else {
-		if (mask[1] == FEAT_ENABLE || mask[1] == FEAT_DISABLE)
-			res = updateGestureMask(&mask[2], mask[0], mask[1]);
-		else
-			res = ERROR_OP_NOT_ALLOW;
-
-		if (res < OK)
-			pr_err("fts_gesture_mask_store: ERROR %08X\n", res);
-	}
-	res |= check_feature_feasibility(info, FEAT_SEL_GESTURE);
-	temp = isAnyGestureActive();
-	if (res >= OK || temp == FEAT_DISABLE)
-		info->gesture_enabled = temp;
-
-	pr_info("fts_gesture_mask_store: Gesture Enabled = %d\n",
-		 info->gesture_enabled);
-
-	count += scnprintf(buf + count,
-			   PAGE_SIZE - count, "{ %08X }\n", res);
-	mask[0] = 0;
-
-	fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, false);
-	return count;
-}
-
-
-static ssize_t fts_gesture_mask_store(struct device *dev,
-				struct device_attribute *attr, const char *buf,
-				size_t count)
-{
-	char *p = (char *)buf;
-	int n;
-	unsigned int temp;
-
-	if ((count + 1) / 3 > GESTURE_MASK_SIZE + 1) {
-		pr_err("fts_gesture_mask_store: Number of bytes of parameter wrong! %zu > (enable/disable + %d )\n",
-			(count + 1) / 3, GESTURE_MASK_SIZE);
-		mask[0] = 0;
-	} else {
-		mask[0] = ((count + 1) / 3) - 1;
-		for (n = 1; n <= (count + 1) / 3; n++) {
-			if (sscanf(p, "%02X ", &temp) == 1) {
-				p += 3;
-				mask[n] = (u8)temp;
-				pr_info("mask[%d] = %02X\n", n, mask[n]);
-			} else
-				pr_err("%s: Error when reading with sscanf!\n",
-					__func__);
-		}
-	}
-
-	return count;
-}
-
-#else	/* if this define is not used, to select the gestures to enable/disable
-	  * are used the IDs of the gestures */
-/* echo EE X1 X2 ... > gesture_mask     set the gesture to disable/enable;
-  * EE = 00(disable) or 01(enable); X1 ... = gesture IDs
-  * (example 01 02 05... represent the gestures with ID = 1, 2 and 5)
-  * there is no limit of the parameters that can be passed,
-  * of course the gesture IDs should be valid (all the valid IDs are listed in
-  * ftsGesture.h) */
-/* cat gesture_mask	enable/disable the given gestures, if one or more
-  * gestures is enabled the driver will automatically enable the gesture mode.
-  * If all the gestures are disabled the driver automatically will disable the
-  * gesture mode.
-  * At the end an error code will be printed
-  *  (example output in the terminal = "AA00000000BB" if there are no errors) */
-/* echo EE X1 X2 ... > gesture_mask; cat gesture_mask	perform in one command
-  * both actions stated before */
-/**
-  * File node used by the host to set the gesture mask to enable or disable
-  * echo EE X1 X2 ~~ > gesture_mask	set the gesture to disable/enable;
-  * EE = 00(disable) or 01(enable) \n
-  * X1 ~ = gesture IDs (example 01 02 05 represent the gestures with ID = 1, 2
-  * and 5)
-  * there is no limit of the IDs passed as arguments, (@link gesture_opt Gesture
-  * IDs @endlink) \n
-  * if one or more gestures is enabled the driver will automatically enable
-  * the gesture mode, If all the gestures are disabled the driver automatically
-  * will disable the gesture mode \n
-  * cat gesture_mask	 to show the status of the gesture enabled switch \n
-  * the string returned in the shell is made up as follow: \n
-  * { = start byte \n
-  * X1X2X3X4 = 4 bytes in HEX format which is the value of info->gesture_enabled
-  * (1 = enabled; 0= disabled)\n
-  * } = end byte
-  */
-static ssize_t fts_gesture_mask_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	int count = 0;
-	struct fts_ts_info *info = dev_get_drvdata(dev);
-
-	pr_info("fts_gesture_mask_show: gesture_enabled = %d\n",
-		info->gesture_enabled);
-
-	count += scnprintf(buf + count,
-			   PAGE_SIZE - count, "{ %08X }\n",
-			   info->gesture_enabled);
-
-
-	return count;
-}
-
-
-static ssize_t fts_gesture_mask_store(struct device *dev,
-				struct device_attribute *attr, const char *buf,
-				size_t count)
-{
-	char *p = (char *)buf;
-	int n;
-	unsigned int temp;
-	int res;
-	struct fts_ts_info *info = dev_get_drvdata(dev);
-
-	if (fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, true) < 0) {
-		res = ERROR_BUS_WR;
-		pr_err("%s: bus is not accessible.\n", __func__);
-		fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, false);
-		return count;
-	}
-
-	if ((count + 1) / 3 < 2 || (count + 1) / 3 > GESTURE_MASK_SIZE + 1) {
-		pr_err("fts_gesture_mask_store: Number of bytes of parameter wrong! %d < or > (enable/disable + at least one gestureID or max %d bytes)\n",
-			(count + 1) / 3, GESTURE_MASK_SIZE);
-		mask[0] = 0;
-	} else {
-		memset(mask, 0, GESTURE_MASK_SIZE + 2);
-		mask[0] = ((count + 1) / 3) - 1;
-		if (sscanf(p, "%02X ", &temp) == 1) {
-			p += 3;
-			mask[1] = (u8)temp;
-			for (n = 1; n < (count + 1) / 3; n++) {
-				if (sscanf(p, "%02X ", &temp) == 1) {
-					p += 3;
-					fromIDtoMask((u8)temp, &mask[2],
-						GESTURE_MASK_SIZE);
-				} else {
-					pr_err("%s: Error when reading with sscanf!\n",
-						__func__);
-					mask[0] = 0;
-					goto END;
-				}
-			}
-
-			for (n = 0; n < GESTURE_MASK_SIZE + 2; n++)
-				pr_info("mask[%d] = %02X\n", n, mask[n]);
-		} else {
-			pr_err("%s: Error when reading with sscanf!\n",
-				__func__);
-			mask[0] = 0;
-		}
-	}
-
-END:
-	if (mask[0] == 0) {
-		res = ERROR_OP_NOT_ALLOW;
-		pr_err("%s: Call before echo enable/disable xx xx .... > gesture_mask with a correct number of parameters! ERROR %08X\n",
-			__func__, res);
-	} else {
-		if (mask[1] == FEAT_ENABLE || mask[1] == FEAT_DISABLE)
-			res = updateGestureMask(&mask[2], mask[0], mask[1]);
-		else
-			res = ERROR_OP_NOT_ALLOW;
-
-		if (res < OK)
-			pr_err("fts_gesture_mask_store: ERROR %08X\n", res);
-	}
-
-	res = check_feature_feasibility(info, FEAT_SEL_GESTURE);
-	temp = isAnyGestureActive();
-	if (res >= OK || temp == FEAT_DISABLE)
-		info->gesture_enabled = temp;
-	res = fts_mode_handler(info, 0);
-
-	fts_set_bus_ref(info, FTS_BUS_REF_SYSFS, false);
-	return count;
-}
-
-
-#endif
-
-
-/**
-  * File node to read the coordinates of the last gesture drawn by the user \n
-  * cat gesture_coordinates	to obtain the gesture coordinates \n
-  * the string returned in the shell follow this up as follow: \n
-  * { = start byte \n
-  * X1X2X3X4 = 4 bytes in HEX format which represent an error code (00000000 =
-  *OK) \n
-  * \n if error code = 00000000 \n
-  * CC = 1 byte in HEX format number of coords (pair of x,y) returned \n
-  * XXiYYi ... = XXi 2 bytes in HEX format for x[i] and
-  * YYi 2 bytes in HEX format for y[i] (big endian) \n
-  * \n
-  * } = end byte
-  */
-static ssize_t fts_gesture_coordinates_show(struct device *dev,
-					struct device_attribute *attr,
-					char *buf)
-{
-	int size = PAGE_SIZE;
-	int count = 0, res, i = 0;
-
-	pr_info("%s: Getting gestures coordinates...\n", __func__);
-
-	if (gesture_coords_reported < OK) {
-		pr_err("%s: invalid coordinates! ERROR %08X\n",
-			 __func__, gesture_coords_reported);
-		res = gesture_coords_reported;
-	} else {
-		size += gesture_coords_reported * 2 * 4 + 2;
-		/* coords are pairs of x,y (*2) where each coord is
-		  * short(2bytes=4char)(*4) + 1 byte(2char) num of coords (+2)
-		  **/
-		res = OK;	/* set error code to OK */
-	}
-
-
-	count += scnprintf(buf + count,
-			   size - count, "{ %08X", res);
-
-	if (res >= OK) {
-		count += scnprintf(buf + count,
-				   size - count, "%02X",
-				   gesture_coords_reported);
-
-		for (i = 0; i < gesture_coords_reported; i++) {
-			count += scnprintf(buf + count,
-					   size - count,
-					   "%04X",
-					   gesture_coordinates_x[i]);
-			count += scnprintf(buf + count,
-					   size - count,
-					   "%04X",
-					   gesture_coordinates_y[i]);
-		}
-	}
-
-	count += scnprintf(buf + count, size - count, " }\n");
-	pr_info("%s: Getting gestures coordinates FINISHED!\n", __func__);
-
 	return count;
 }
 #endif
@@ -839,13 +442,6 @@ static DEVICE_ATTR(glove_mode, 0664,
 		   fts_glove_mode_show, fts_glove_mode_store);
 #endif
 
-#ifdef GESTURE_MODE
-static DEVICE_ATTR(gesture_mask, 0664,
-		   fts_gesture_mask_show, fts_gesture_mask_store);
-static DEVICE_ATTR(gesture_coordinates, 0664,
-		   fts_gesture_coordinates_show, NULL);
-#endif
-
 /*  /sys/devices/soc.0/f9928000.i2c/i2c-6/6-0049 */
 static struct attribute *fts_attr_group[] = {
 #if IS_ENABLED(CONFIG_TOUCHSCREEN_HEATMAP)
@@ -856,10 +452,6 @@ static struct attribute *fts_attr_group[] = {
 	&dev_attr_glove_mode.attr,
 #endif
 
-#ifdef GESTURE_MODE
-	&dev_attr_gesture_mask.attr,
-	&dev_attr_gesture_coordinates.attr,
-#endif
 	NULL,
 };
 
@@ -1155,175 +747,14 @@ static bool fts_status_event_handler(struct fts_ts_info *info, unsigned
 	return false;
 }
 
-/* gesture event must be handled in the user event handler */
-#ifdef GESTURE_MODE
-/* TODO: Customer should implement their own actions in respond of a gesture
- * event.
-  * This is an example that simply print the gesture received and simulate
-  * the click on a different button for each gesture. */
 /**
-  * Event handler for gesture events (EVT_TYPE_USER_GESTURE)
-  * Handle gesture events and simulate the click on a different button
-  * for any gesture detected (@link gesture_opt Gesture IDs @endlink)
-  */
-static void fts_gesture_event_handler(struct fts_ts_info *info, unsigned
-				      char *event)
-{
-	int value;
-	int needCoords = 0;
-
-	pr_info("gesture event data: %02X %02X %02X %02X %02X %02X %02X %02X\n",
-		event[0], event[1], event[2], event[3], event[4],
-		event[5], event[6], event[7]);
-
-	if (event[0] == EVT_ID_USER_REPORT && event[1] ==
-	    EVT_TYPE_USER_GESTURE) {
-		needCoords = 1;
-		/* default read the coordinates for all gestures excluding
-		 * double tap */
-
-		switch (event[2]) {
-		case GEST_ID_DBLTAP:
-			value = KEY_WAKEUP;
-			pr_info("%s: double tap !\n", __func__);
-			needCoords = 0;
-			break;
-
-		case GEST_ID_AT:
-			value = KEY_WWW;
-			pr_info("%s: @ !\n", __func__);
-			break;
-
-		case GEST_ID_C:
-			value = KEY_C;
-			pr_info("%s: C !\n", __func__);
-			break;
-
-		case GEST_ID_E:
-			value = KEY_E;
-			pr_info("%s: e !\n", __func__);
-			break;
-
-		case GEST_ID_F:
-			value = KEY_F;
-			pr_info("%s: F !\n", __func__);
-			break;
-
-		case GEST_ID_L:
-			value = KEY_L;
-			pr_info("%s: L !\n", __func__);
-			break;
-
-		case GEST_ID_M:
-			value = KEY_M;
-			pr_info("%s: M !\n", __func__);
-			break;
-
-		case GEST_ID_O:
-			value = KEY_O;
-			pr_info("%s: O !\n", __func__);
-			break;
-
-		case GEST_ID_S:
-			value = KEY_S;
-			pr_info("%s: S !\n", __func__);
-			break;
-
-		case GEST_ID_V:
-			value = KEY_V;
-			pr_info("%s:  V !\n", __func__);
-			break;
-
-		case GEST_ID_W:
-			value = KEY_W;
-			pr_info("%s:  W !\n", __func__);
-			break;
-
-		case GEST_ID_Z:
-			value = KEY_Z;
-			pr_info("%s:  Z !\n", __func__);
-			break;
-
-		case GEST_ID_RIGHT_1F:
-			value = KEY_RIGHT;
-			pr_info("%s:  -> !\n", __func__);
-			break;
-
-		case GEST_ID_LEFT_1F:
-			value = KEY_LEFT;
-			pr_info("%s:  <- !\n", __func__);
-			break;
-
-		case GEST_ID_UP_1F:
-			value = KEY_UP;
-			pr_info("%s:  UP !\n", __func__);
-			break;
-
-		case GEST_ID_DOWN_1F:
-			value = KEY_DOWN;
-			pr_info("%s:  DOWN !\n", __func__);
-			break;
-
-		case GEST_ID_CARET:
-			value = KEY_APOSTROPHE;
-			pr_info("%s:  ^ !\n", __func__);
-			break;
-
-		case GEST_ID_LEFTBRACE:
-			value = KEY_LEFTBRACE;
-			pr_info("%s:  < !\n", __func__);
-			break;
-
-		case GEST_ID_RIGHTBRACE:
-			value = KEY_RIGHTBRACE;
-			pr_info("%s:  > !\n", __func__);
-			break;
-
-		default:
-			pr_err("%s:  No valid GestureID!\n", __func__);
-			goto gesture_done;
-		}
-
-		if (needCoords == 1)
-			readGestureCoords(event);
-
-		fts_input_report_key(info, value);
-
-gesture_done:
-		return;
-	} else
-		pr_err("%s: Invalid event passed as argument!\n", __func__);
-}
-#endif
-
-
-/**
-  * Event handler for user report events (EVT_ID_USER_REPORT)
+  * STUB
   * Handle user events reported by the FW due to some interaction triggered
   * by an external user (press keys, perform gestures, etc.)
   */
 static bool fts_user_report_event_handler(struct fts_ts_info *info, unsigned
 					  char *event)
 {
-	switch (event[1]) {
-	case EVT_TYPE_USER_PROXIMITY:
-		if (event[2] == 0)
-			pr_err("%s No proximity!\n", __func__);
-		else
-			pr_err("%s Proximity Detected!\n", __func__);
-		break;
-
-#ifdef GESTURE_MODE
-	case EVT_TYPE_USER_GESTURE:
-		fts_gesture_event_handler(info, event);
-		break;
-#endif
-	default:
-		pr_err("%s: Received unhandled user report event = %02X %02X %02X %02X %02X %02X %02X %02X\n",
-			__func__, event[0], event[1], event[2], event[3],
-			event[4], event[5], event[6], event[7]);
-		break;
-	}
 	return false;
 }
 
@@ -2463,23 +1894,6 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 		res |= ret;	/* to avoid warning unsused ret variable when a
 				  * ll the features are disabled */
 
-#ifdef GESTURE_MODE
-		if (info->gesture_enabled == 1) {
-			pr_debug("%s: enter in gesture mode !\n",
-				 __func__);
-			res = enterGestureMode(isSystemResettedDown());
-			if (res >= OK) {
-				enable_irq_wake(info->client->irq);
-				fromIDtoMask(FEAT_SEL_GESTURE,
-					     (u8 *)&info->mode,
-					     sizeof(info->mode));
-				MODE_LOW_POWER(info->mode, 0);
-			} else
-				pr_err("%s: enterGestureMode failed! ERROR %08X recovery in senseOff...\n",
-					__func__, res);
-		}
-#endif
-
 		setSystemResetedDown(0);
 		break;
 
@@ -3244,45 +2658,11 @@ static int fts_probe(struct spi_device *client)
 			     DISTANCE_MAX, 0, 0);
 #endif
 
-#ifdef GESTURE_MODE
-	input_set_capability(info->input_dev, EV_KEY, KEY_WAKEUP);
-
-	input_set_capability(info->input_dev, EV_KEY, KEY_M);
-	input_set_capability(info->input_dev, EV_KEY, KEY_O);
-	input_set_capability(info->input_dev, EV_KEY, KEY_E);
-	input_set_capability(info->input_dev, EV_KEY, KEY_W);
-	input_set_capability(info->input_dev, EV_KEY, KEY_C);
-	input_set_capability(info->input_dev, EV_KEY, KEY_L);
-	input_set_capability(info->input_dev, EV_KEY, KEY_F);
-	input_set_capability(info->input_dev, EV_KEY, KEY_V);
-	input_set_capability(info->input_dev, EV_KEY, KEY_S);
-	input_set_capability(info->input_dev, EV_KEY, KEY_Z);
-	input_set_capability(info->input_dev, EV_KEY, KEY_WWW);
-
-	input_set_capability(info->input_dev, EV_KEY, KEY_LEFT);
-	input_set_capability(info->input_dev, EV_KEY, KEY_RIGHT);
-	input_set_capability(info->input_dev, EV_KEY, KEY_UP);
-	input_set_capability(info->input_dev, EV_KEY, KEY_DOWN);
-
-	input_set_capability(info->input_dev, EV_KEY, KEY_F1);
-	input_set_capability(info->input_dev, EV_KEY, KEY_F2);
-	input_set_capability(info->input_dev, EV_KEY, KEY_F3);
-	input_set_capability(info->input_dev, EV_KEY, KEY_F4);
-	input_set_capability(info->input_dev, EV_KEY, KEY_F5);
-
-	input_set_capability(info->input_dev, EV_KEY, KEY_LEFTBRACE);
-	input_set_capability(info->input_dev, EV_KEY, KEY_RIGHTBRACE);
-#endif
-
 	mutex_init(&(info->input_report_mutex));
 	mutex_init(&info->bus_mutex);
 
 	/* Assume screen is on throughout probe */
 	info->bus_refmask = FTS_BUS_REF_SCREEN_ON;
-
-#ifdef GESTURE_MODE
-	mutex_init(&gestureMask_mutex);
-#endif
 
 	spin_lock_init(&info->fts_int);
 
@@ -3302,7 +2682,6 @@ static int fts_probe(struct spi_device *client)
 	/* init feature switches (by default all the features are disable,
 	  * if one feature want to be enabled from the start,
 	  * set the corresponding value to 1)*/
-	info->gesture_enabled = 0;
 	info->glove_enabled = 0;
 
 	info->resume_bit = 1;
