@@ -26,7 +26,6 @@
 #include "ftsFrame.h"
 #include "ftsIO.h"
 #include "ftsSoftware.h"
-#include "ftsTime.h"
 #include "ftsTool.h"
 #include "../fts.h"	/* needed for including the define FW_H_FILE */
 

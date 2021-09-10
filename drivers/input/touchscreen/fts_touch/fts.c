@@ -74,7 +74,6 @@
 #include "fts_lib/ftsError.h"
 #include "fts_lib/ftsFlash.h"
 #include "fts_lib/ftsFrame.h"
-#include "fts_lib/ftsTime.h"
 #include "fts_lib/ftsTool.h"
 
 /* Touch simulation MT slot */
