@@ -33,7 +33,6 @@
 
 #include <linux/init.h>
 #include <linux/kernel.h>
-#include <linux/module.h>
 #include <linux/string.h>
 #include <linux/ctype.h>
 #include <linux/slab.h>
@@ -2929,7 +2928,6 @@ static struct spi_driver fts_spi_driver = {
 	.driver			= {
 		.name		= FTS_TS_DRV_NAME,
 		.of_match_table = fts_of_match_table,
-		.owner		= THIS_MODULE,
 #ifdef CONFIG_PM
 		.pm		= &fts_pm_ops,
 #endif
@@ -2949,21 +2947,4 @@ static int __init fts_driver_init(void)
 	return spi_register_driver(&fts_spi_driver);
 #endif
 }
-
-static void __exit fts_driver_exit(void)
-{
-	pr_info("%s\n", __func__);
-#ifdef I2C_INTERFACE
-	i2c_del_driver(&fts_i2c_driver);
-#else
-	spi_unregister_driver(&fts_spi_driver);
-#endif
-}
-
-
-MODULE_DESCRIPTION("STMicroelectronics MultiTouch IC Driver");
-MODULE_AUTHOR("STMicroelectronics");
-MODULE_LICENSE("GPL");
-
 late_initcall(fts_driver_init);
-module_exit(fts_driver_exit);
