@@ -23,14 +23,38 @@
 #include <linux/slab.h>
 #include <linux/interrupt.h>
 #include <linux/gpio.h>
+#include <linux/time.h>
 #include "ftsCompensation.h"
 #include "ftsCore.h"
 #include "ftsError.h"
 #include "ftsIO.h"
-#include "ftsTest.h"
-#include "ftsTime.h"
 #include "ftsTool.h"
 #include "ftsFrame.h"
+
+#define TIMEOUT_RESOLUTION			50
+/* /< timeout resolution in ms (all timeout should be multiples of this unit) */
+#define GENERAL_TIMEOUT				(15 * TIMEOUT_RESOLUTION)
+/* /< general timeout in ms */
+#define RELEASE_INFO_TIMEOUT			(2 * TIMEOUT_RESOLUTION)
+/* /< timeout to request release info in ms */
+
+
+#define TIMEOUT_REQU_COMP_DATA			(4 * TIMEOUT_RESOLUTION)
+/* /< timeout to request compensation data in ms */
+#define TIMEOUT_REQU_DATA			(8 * TIMEOUT_RESOLUTION)
+/* /< timeout to request data in ms */
+#define TIMEOUT_ITO_TEST_RESULT			(4 * TIMEOUT_RESOLUTION)
+/* /< timeout to perform ito test in ms */
+#define TIMEOUT_INITIALIZATION_TEST_RESULT	(5000 * TIMEOUT_RESOLUTION)
+/* /< timeout to perform initialization test in ms */
+#define TIEMOUT_ECHO 				(50 * TIMEOUT_RESOLUTION)
+/* /< timeout of the echo command,*/
+#define TIMEOUT_ECHO_FLUSH			(TIMEOUT_RESOLUTION)
+/* /< timeout of the flush echo command,*/
+#define TIMEOUT_ECHO_FPI			(200  * TIMEOUT_RESOLUTION)
+/* /< timeout of the Full panel Init echo command */
+#define TIMEOUT_ECHO_SINGLE_ENDED_SPECIAL_AUTOTUNE \
+	(100  * TIMEOUT_RESOLUTION)
 
 /** @addtogroup system_info
   * @{
@@ -63,7 +87,6 @@ int initCore(struct fts_ts_info *info)
 	pr_info("%s: Initialization of the Core...\n", __func__);
 	ret |= openChannel(info->client);
 	ret |= resetErrorList();
-	ret |= initTestToDo();
 	setResetGpio(info->board->reset_gpio);
 	if (ret < OK)
 		pr_err("%s: Initialization Core ERROR %08X!\n",
@@ -202,7 +225,6 @@ int pollForEvent(int *event_to_search, int event_bytes, u8 *readData, int
 	int i, find, retry, count_err;
 	int time_to_count;
 	int err_handling = OK;
-	StopWatch clock;
 
 	u8 cmd[1] = { FIFO_CMD_READONE };
 	char temp[128] = { 0 };
@@ -212,7 +234,6 @@ int pollForEvent(int *event_to_search, int event_bytes, u8 *readData, int
 	count_err = 0;
 	time_to_count = time_to_wait / POLL_SLEEP_TIME_MS;
 
-	startStopWatch(&clock);
 	while (find != 1 && retry < time_to_count &&
 		fts_writeReadU8UX(cmd[0], 0, 0, readData, FIFO_EVENT_SIZE,
 			DUMMY_FIFO)
@@ -266,7 +287,6 @@ int pollForEvent(int *event_to_search, int event_bytes, u8 *readData, int
 			}
 		}
 	}
-	stopStopWatch(&clock);
 	if ((retry >= time_to_count) && find != 1) {
 		pr_err("pollForEvent: ERROR %08X\n", ERROR_TIMEOUT);
 		return ERROR_TIMEOUT;
@@ -278,8 +298,6 @@ int pollForEvent(int *event_to_search, int event_bytes, u8 *readData, int
 				  temp,
 				  sizeof(temp)));
 		memset(temp, 0, 128);
-		pr_debug("Event found in %d ms (%d iterations)! Number of errors found = %d\n",
-			elapsedMillisecond(&clock), retry, count_err);
 		return count_err;
 	} else {
 		pr_err("pollForEvent: ERROR %08X\n", ERROR_BUS_R);
