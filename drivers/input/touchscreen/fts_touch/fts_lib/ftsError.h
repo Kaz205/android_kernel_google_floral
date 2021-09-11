@@ -115,20 +115,6 @@
 #define ERROR_FW_VER_READ		(0x80000D00)	/* /< unable to retrieve
 							 * fw_vers or the
 							 * config_id */
-#define ERROR_GESTURE_ENABLE_FAIL	(0x80000E00)	/* /< unable to
-							 * enable/disable
-							 * the gesture */
-#define ERROR_GESTURE_START_ADD		(0x80000F00)	/* /< unable to start to
-							 * add custom gesture */
-#define ERROR_GESTURE_FINISH_ADD	(0x80001000)	/* /< unable to finish
-							 * to add custom gesture
-							 */
-#define ERROR_GESTURE_DATA_ADD		(0x80001100)	/* /< unable to add
-							 * custom gesture data
-							 * */
-#define ERROR_GESTURE_REMOVE		(0x80001200)	/* /< unable to remove
-							 * custom gesture data
-							 * */
 #define ERROR_FEATURE_ENABLE_DISABLE	(0x80001300)	/* /< unable to
 							 * enable/disable a
 							 * feature mode in
