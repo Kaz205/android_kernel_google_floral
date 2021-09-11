@@ -26,7 +26,6 @@
 #include "ftsIO.h"
 #include "ftsSoftware.h"
 #include "ftsTool.h"
-#include "ftsTime.h"
 
 
 #include <linux/errno.h>

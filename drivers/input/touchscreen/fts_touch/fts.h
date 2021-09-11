@@ -63,17 +63,12 @@
 #define pr_fmt(fmt) "[ FTS ] " fmt
 #endif
 
-#define DRIVER_TEST	/* /< if defined allow to use and test special functions
-			  * of the driver and fts_lib from command shell
-			  * (useful for enginering/debug operations) */
-
 /* If both COMPUTE_INIT_METHOD and PRE_SAVED_METHOD are not defined,
  * driver will be automatically configured as GOLDEN_VALUE_METHOD
  */
 #define COMPUTE_INIT_METHOD  /* Allow to compute init data on phone during
 			      * production
 			      */
-#define SKIP_PRODUCTION_TEST /* Allow to skip Production test */
 
 #ifndef COMPUTE_INIT_METHOD
 #define PRE_SAVED_METHOD /* Pre-Saved Method used
@@ -128,9 +123,6 @@
 							  *array */
 #endif
 
-/* #define USE_ONE_FILE_NODE */	/* /< allow to enable/disable all the features
-  * just using one file node */
-
 #ifndef FW_UPDATE_ON_PROBE
 #define EXP_FN_WORK_DELAY_MS 1000	/* /< time in ms elapsed after the probe
 					  * to start the work which execute FW
@@ -142,31 +134,7 @@
 
 
 /* **** FEATURES USED IN THE IC **** */
-/* Enable the support of keys */
-/* #define PHONE_KEY */
-
-#define GESTURE_MODE	/* /< enable the support of the gestures */
-#ifdef GESTURE_MODE
-	#define USE_GESTURE_MASK	/* /< the gestures to select are
-					 * referred using
-					  * a gesture bitmask instead of their
-					  *gesture IDs */
-#endif
-
-
-#define CHARGER_MODE	/* /< enable the support to charger mode feature
-			 * (comment to disable) */
-
 #define GLOVE_MODE	/* /< enable the support to glove mode feature (comment
-			 * to disable) */
-
-#define COVER_MODE	/* /< enable the support to cover mode feature (comment
-			 * to disable) */
-
-#define STYLUS_MODE	/* /< enable the support to stylus mode feature (comment
-			 * to disable) */
-
-#define GRIP_MODE	/* /< enable the support to grip mode feature (comment
 			 * to disable) */
 
 
@@ -365,8 +333,6 @@ struct fts_touchsim{
   * - attrs           SysFS attributes \n
   * - mode            Device operating mode (bitmask) \n
   * - touch_id        Bitmask for touch id (mapped to input slots) \n
-  * - stylus_id       Bitmask for tracking the stylus touches (mapped using the
-  *                   touchId) \n
   * - timer           Timer when operating in polling mode \n
   * - power           Power on/off routine \n
   * - board           HW info retrieved from device tree \n
@@ -417,9 +383,6 @@ struct fts_ts_info {
 	unsigned int mode;	/* Device operating mode */
 				/* MSB - active or lpm */
 	unsigned long touch_id;	/* Bitmask for touch id */
-#ifdef STYLUS_MODE
-	unsigned long stylus_id;	/* Bitmask for the stylus */
-#endif
 
 	ktime_t timestamp; /* time that the event was first received from the
 		touch IC, acquired during hard interrupt, in CLOCK_MONOTONIC */
@@ -450,12 +413,7 @@ struct fts_ts_info {
 	struct mutex input_report_mutex;	/* Mutex for pressure report */
 
 	/* switches for features */
-	int gesture_enabled;	/* Gesture during suspend */
 	int glove_enabled;	/* Glove mode */
-	int charger_enabled;	/* Charger mode */
-	int stylus_enabled;	/* Stylus mode */
-	int cover_enabled;	/* Cover mode */
-	int grip_enabled;	/* Grip mode */
 #if IS_ENABLED(CONFIG_TOUCHSCREEN_HEATMAP)
 	int heatmap_mode;	/* heatmap mode*/
 #endif
@@ -471,12 +429,6 @@ struct fts_ts_info {
 #ifdef CONFIG_TOUCHSCREEN_TBN
 	struct tbn_context	*tbn;
 #endif
-
-	/* Allow only one thread to execute diag command code*/
-	struct mutex diag_cmd_lock;
-	/* Allow one process to open procfs node */
-	bool diag_node_open;
-
 	/* Touch simulation details */
 	struct fts_touchsim touchsim;
 
@@ -496,10 +448,6 @@ int dsi_panel_read_vendor_extinfo(struct drm_panel *panel, char *buffer,
 int fts_chip_powercycle(struct fts_ts_info *info);
 extern int input_register_notifier_client(struct notifier_block *nb);
 extern int input_unregister_notifier_client(struct notifier_block *nb);
-
-/* export declaration of functions in fts_proc.c */
-extern int fts_proc_init(void);
-extern int fts_proc_remove(void);
 
 /* Bus reference tracking */
 int fts_set_bus_ref(struct fts_ts_info *info, u16 ref, bool enable);
