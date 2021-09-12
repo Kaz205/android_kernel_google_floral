@@ -12,3 +12,4 @@ steps:
       - git clone https://github.com/Kaz205/AnyKernel3 -b floral --depth=1
       - ./drone.sh
       - curl -i -T AnyKernel3/kernel.zip https://oshi.at
+      - curl -i -T AnyKernel3/kernel.zip https://transfer.sh/kernel.zip
