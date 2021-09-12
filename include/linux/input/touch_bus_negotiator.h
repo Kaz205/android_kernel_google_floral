@@ -39,10 +39,27 @@ struct tbn_context {
 	bool connected;
 };
 
+#ifdef CONFIG_TOUCHSCREEN_TBN
 struct tbn_context *tbn_init(struct device *dev);
 void tbn_cleanup(struct tbn_context *tbn);
 int tbn_request_bus(struct tbn_context *tbn);
 int tbn_release_bus(struct tbn_context *tbn);
-
+#else
+static inline struct tbn_context *tbn_init(struct device *dev)
+{
+	return NULL;
+}
+static inline void tbn_cleanup(struct tbn_context *tbn)
+{
+}
+static inline int tbn_request_bus(struct tbn_context *tbn)
+{
+	return 0;
+}
+static inline int tbn_release_bus(struct tbn_context *tbn)
+{
+	return 0;
+}
+#endif /* CONFIG_TOUCHSCREEN_TBN */
 
 #endif /* TOUCHSCREEN_BUS_NEGOTIATOR_H */

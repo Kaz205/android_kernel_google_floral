@@ -1983,10 +1983,8 @@ static void fts_resume_work(struct work_struct *work)
 	if (!info->sensor_sleep)
 		return;
 
-#ifdef CONFIG_TOUCHSCREEN_TBN
 	if (info->tbn)
 		tbn_request_bus(info->tbn);
-#endif
 
 	fts_set_switch_gpio(info, FTS_SWITCH_GPIO_VALUE_AP_MASTER);
 
@@ -2043,10 +2041,8 @@ static void fts_suspend_work(struct work_struct *work)
 
 	fts_set_switch_gpio(info, FTS_SWITCH_GPIO_VALUE_SLPI_MASTER);
 
-#ifdef CONFIG_TOUCHSCREEN_TBN
 	if (info->tbn)
 		tbn_release_bus(info->tbn);
-#endif
 
 	info->sensor_sleep = true;
 	__pm_relax(&info->wakesrc);
@@ -2550,14 +2546,12 @@ static int fts_probe(struct spi_device *client)
 
 	dev_set_drvdata(info->dev, info);
 
-#ifdef CONFIG_TOUCHSCREEN_TBN
 	info->tbn = tbn_init(info->dev);
 	if (!info->tbn) {
 		pr_err("ERROR: failed to init tbn context\n");
 		error = -ENODEV;
 		goto ProbeErrorExit_1;
 	}
-#endif
 
 	if (dp) {
 		info->board = devm_kzalloc(&client->dev,
