@@ -485,6 +485,18 @@ boost_write(struct cgroup_subsys_state *css, struct cftype *cft,
 	return 0;
 }
 
+static u64 prefer_high_cap_read(struct cgroup_subsys_state *css,
+				struct cftype *cft)
+{
+	return 0;
+}
+
+static int prefer_high_cap_write(struct cgroup_subsys_state *css,
+				 struct cftype *cft, u64 prefer_high_cap)
+{
+	return 0;
+}
+
 static struct cftype files[] = {
 	{
 		.name = "boost",
@@ -495,6 +507,11 @@ static struct cftype files[] = {
 		.name = "prefer_idle",
 		.read_u64 = prefer_idle_read,
 		.write_u64 = prefer_idle_write,
+	},
+	{
+		.name = "prefer_high_cap",
+		.read_u64 = prefer_high_cap_read,
+		.write_u64 = prefer_high_cap_write,
 	},
 	{ }	/* terminate */
 };
