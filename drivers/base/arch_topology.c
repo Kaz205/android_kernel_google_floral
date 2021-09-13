@@ -25,53 +25,8 @@
 #include <linux/cpuset.h>
 
 DEFINE_PER_CPU(unsigned long, freq_scale) = SCHED_CAPACITY_SCALE;
-DEFINE_PER_CPU(unsigned long, efficiency) = SCHED_CAPACITY_SCALE;
 DEFINE_PER_CPU(unsigned long, max_cpu_freq);
 DEFINE_PER_CPU(unsigned long, max_freq_scale) = SCHED_CAPACITY_SCALE;
-
-/*
- * Per-cpu for maximum available cap due to thermal events.
- */
-DEFINE_PER_CPU(unsigned long, max_thermal_scale) = SCHED_CAPACITY_SCALE;
-
-/*
- * Per-cpu for cached maximum available freq due to thermal events.
- */
-static DEFINE_PER_CPU(unsigned long, max_cpu_thermal_freq);
-
-/*
- * spin lock to update thermal freq cap.
- */
-static DEFINE_SPINLOCK(max_thermal_freq_lock);
-
-void arch_set_max_thermal_scale(struct cpumask *cpus,
-				unsigned long max_thermal_freq)
-{
-	unsigned long flags, scale, max_freq, scale_freq;
-	int cpu = cpumask_first(cpus);
-
-	if (cpu > nr_cpu_ids)
-		return;
-
-	spin_lock_irqsave(&max_thermal_freq_lock, flags);
-	for_each_cpu(cpu, cpus) {
-		if (per_cpu(max_cpu_thermal_freq, cpu) != max_thermal_freq) {
-			max_freq = per_cpu(max_cpu_freq, cpu);
-			/* skip if cpuinfo max unknown */
-			if (!max_freq)
-				continue;
-			/* cache thermal max raw freq */
-			per_cpu(max_cpu_thermal_freq, cpu) = max_thermal_freq;
-			/* cap thermal max freq with cpuinfo max */
-			scale_freq = min(max_thermal_freq, max_freq);
-			/* calc thermal max freq scale */
-			scale = (scale_freq << SCHED_CAPACITY_SHIFT) / max_freq;
-			/* update thermal max freq scale */
-			per_cpu(max_thermal_scale, cpu) = scale;
-		}
-	}
-	spin_unlock_irqrestore(&max_thermal_freq_lock, flags);
-}
 
 void arch_set_freq_scale(struct cpumask *cpus, unsigned long cur_freq,
 			 unsigned long max_freq)
@@ -225,28 +180,24 @@ int detect_share_cap_flag(void)
 		if (!policy)
 			return 0;
 
-		if (cpumask_equal(cpu_cpu_mask(cpu),
+		if (share_cap_level < share_cap_thread &&
+			cpumask_equal(topology_sibling_cpumask(cpu),
 				  policy->related_cpus)) {
-			share_cap_level = share_cap_die;
-			cpufreq_cpu_put(policy);
+			share_cap_level = share_cap_thread;
 			continue;
 		}
 
 		if (cpumask_equal(topology_core_cpumask(cpu),
 				  policy->related_cpus)) {
 			share_cap_level = share_cap_core;
-			cpufreq_cpu_put(policy);
 			continue;
 		}
 
-		if (cpumask_equal(topology_sibling_cpumask(cpu),
+		if (cpumask_equal(cpu_cpu_mask(cpu),
 				  policy->related_cpus)) {
-			share_cap_level = share_cap_thread;
-			cpufreq_cpu_put(policy);
+			share_cap_level = share_cap_die;
 			continue;
 		}
-
-		cpufreq_cpu_put(policy);
 	}
 
 	if (share_cap != share_cap_level) {
@@ -340,7 +291,7 @@ int topology_smt_flags(void)
 	if (asym_cpucap == asym_thread)
 		flags |= SD_ASYM_CPUCAPACITY;
 
-	if (share_cap >= share_cap_thread)
+	if (share_cap == share_cap_thread)
 		flags |= SD_SHARE_CAP_STATES;
 
 	return flags;
@@ -353,7 +304,7 @@ int topology_core_flags(void)
 	if (asym_cpucap == asym_core)
 		flags |= SD_ASYM_CPUCAPACITY;
 
-	if (share_cap >= share_cap_core)
+	if (share_cap == share_cap_core)
 		flags |= SD_SHARE_CAP_STATES;
 
 	return flags;
@@ -366,7 +317,7 @@ int topology_cpu_flags(void)
 	if (asym_cpucap == asym_die)
 		flags |= SD_ASYM_CPUCAPACITY;
 
-	if (share_cap >= share_cap_die)
+	if (share_cap == share_cap_die)
 		flags |= SD_SHARE_CAP_STATES;
 
 	return flags;
@@ -435,7 +386,6 @@ bool __init topology_parse_cpu_capacity(struct device_node *cpu_node, int cpu)
 	ret = of_property_read_u32(cpu_node, "capacity-dmips-mhz",
 				   &cpu_capacity);
 	if (!ret) {
-		per_cpu(efficiency, cpu) = cpu_capacity;
 		if (!raw_capacity) {
 			raw_capacity = kcalloc(num_possible_cpus(),
 					       sizeof(*raw_capacity),
