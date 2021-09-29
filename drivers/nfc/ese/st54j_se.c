@@ -203,9 +203,8 @@ static int st54j_se_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	spi_param = devm_kzalloc(dev, sizeof(spi_param), GFP_KERNEL);
-	if (spi_param == NULL) {
+	if (spi_param == NULL)
 		return -ENOMEM;
-	}
 
 	ese_dev->spi = spi;
 	ese_dev->device.minor = MISC_DYNAMIC_MINOR;
