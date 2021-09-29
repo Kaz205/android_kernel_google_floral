@@ -75,7 +75,6 @@ static int st54j_se_open(struct inode *inode, struct file *filp)
 	int ret = 0;
 	struct st54j_se_dev *ese_dev = container_of(filp->private_data,
 				struct st54j_se_dev, device);
-	mutex_lock(&ese_dev->mutex);
 	if (ese_dev->device_open) {
 		ret = -EBUSY;
 		dev_info(&ese_dev->spi->dev, "%s: device already opened\n",
@@ -86,7 +85,6 @@ static int st54j_se_open(struct inode *inode, struct file *filp)
 		dev_info(&ese_dev->spi->dev, "%s: device_open = %d", __func__,
 			 ese_dev->device_open);
 	}
-	mutex_unlock(&ese_dev->mutex);
 	return ret;
 }
 
@@ -94,9 +92,7 @@ static int st54j_se_release(struct inode *ino, struct file *filp)
 {
 	struct st54j_se_dev *ese_dev = filp->private_data;
 
-	mutex_lock(&ese_dev->mutex);
 	ese_dev->device_open = false;
-	mutex_unlock(&ese_dev->mutex);
 	dev_dbg(&ese_dev->spi->dev, "%s : device_open  = %d\n",
 		 __func__, ese_dev->device_open);
 	return 0;
