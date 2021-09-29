@@ -198,11 +198,11 @@ static int st54j_se_probe(struct spi_device *spi)
 		return -EINVAL;
 	}
 
-	ese_dev = devm_kzalloc(dev, sizeof(*ese_dev), GFP_KERNEL);
+	ese_dev = kzalloc(sizeof(*ese_dev), GFP_KERNEL);
 	if (ese_dev == NULL)
 		return -ENOMEM;
 
-	spi_param = devm_kzalloc(dev, sizeof(spi_param), GFP_KERNEL);
+	spi_param = kzalloc(sizeof(spi_param), GFP_KERNEL);
 	if (spi_param == NULL)
 		return -ENOMEM;
 
@@ -215,8 +215,7 @@ static int st54j_se_probe(struct spi_device *spi)
 	spi_param->spi_cs_clk_delay = 90;
 	spi->controller_data = spi_param;
 
-	ese_dev->gpiod_se_reset = devm_gpiod_get(dev, "esereset",
-						 GPIOD_OUT_HIGH);
+	ese_dev->gpiod_se_reset = gpiod_get(dev, "esereset", GPIOD_OUT_HIGH);
 	if (IS_ERR(ese_dev->gpiod_se_reset)) {
 		dev_err(dev,
 			"%s : Unable to request esereset %d \n",
