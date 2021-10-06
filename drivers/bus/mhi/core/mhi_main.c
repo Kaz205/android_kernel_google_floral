@@ -1394,14 +1394,8 @@ int mhi_process_tsync_ev_ring(struct mhi_controller *mhi_cntrl,
 	mutex_lock(&mhi_cntrl->tsync_mutex);
 
 	if (unlikely(mhi_tsync->int_sequence != sequence)) {
-		MHI_ASSERT(1, "Unexpected response:0x%llx Expected:0x%llx\n",
+		panic("Unexpected response:0x%x Expected:0x%x\n",
 			   sequence, mhi_tsync->int_sequence);
-
-		mhi_device_put(mhi_cntrl->mhi_dev,
-			       MHI_VOTE_DEVICE | MHI_VOTE_BUS);
-
-		mutex_unlock(&mhi_cntrl->tsync_mutex);
-		goto exit_tsync_process;
 	}
 
 	do {
