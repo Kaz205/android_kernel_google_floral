@@ -7408,6 +7408,7 @@ static inline int task_fits_capacity(struct task_struct *p, long capacity,
 									 int cpu)
 {
 	unsigned int margin;
+	unsigned int max_capacity = cpu_rq(cpu)->rd->max_cpu_capacity.val;
 
 	if (capacity == max_capacity)
 		return true;
