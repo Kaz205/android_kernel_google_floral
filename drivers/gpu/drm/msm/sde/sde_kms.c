@@ -27,7 +27,6 @@
 #include <linux/memblock.h>
 #include <linux/bootmem.h>
 #include <linux/msm_drm_notify.h>
-#include <linux/pm_qos.h>
 
 #include "msm_drv.h"
 #include "msm_mmu.h"
@@ -1116,10 +1115,6 @@ static void sde_kms_commit(struct msm_kms *kms,
 	struct sde_kms *sde_kms;
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *old_crtc_state;
-	struct pm_qos_request req = {
-		.type = PM_QOS_REQ_AFFINE_CORES,
-		.cpus_affine = ATOMIC_INIT(BIT(smp_processor_id()))
-	};
 	int i;
 
 	if (!kms || !old_state)
@@ -1131,7 +1126,6 @@ static void sde_kms_commit(struct msm_kms *kms,
 		return;
 	}
 
-	pm_qos_add_request(&req, PM_QOS_CPU_DMA_LATENCY, 100);
 	SDE_ATRACE_BEGIN("sde_kms_commit");
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 		if (crtc->state->active) {
@@ -1141,7 +1135,6 @@ static void sde_kms_commit(struct msm_kms *kms,
 	}
 
 	SDE_ATRACE_END("sde_kms_commit");
-	pm_qos_remove_request(&req);
 }
 
 void sde_kms_release_splash_resource(struct sde_kms *sde_kms,
