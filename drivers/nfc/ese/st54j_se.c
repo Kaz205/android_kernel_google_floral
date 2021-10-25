@@ -172,6 +172,15 @@ static long st54j_se_ioctl(struct file *filp, unsigned int cmd,
 	return ret;
 }
 
+#ifdef CONFIG_COMPAT
+static long st54j_se_compat_ioctl(struct file *filp, unsigned int cmd,
+			   unsigned long arg)
+{
+	pr_info("Hakase: Compat ioctl called");
+	st54j_se_ioctl(filp, cmd, arg);
+}
+#endif
+
 static const struct file_operations st54j_se_dev_fops = {
 	.llseek = no_llseek,
 	.read = st54j_se_read,
@@ -180,7 +189,7 @@ static const struct file_operations st54j_se_dev_fops = {
 	.release = st54j_se_release,
 	.unlocked_ioctl = st54j_se_ioctl,
 #ifdef CONFIG_COMPAT
-	.compat_ioctl = st54j_se_ioctl
+	.compat_ioctl = st54j_se_compat_ioctl
 #endif
 };
 
