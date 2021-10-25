@@ -41,61 +41,41 @@ struct st54j_se_dev {
 	struct gpio_desc *gpiod_se_reset;
 };
 
-static long st54j_se_ioctl(struct file *filp, unsigned int cmd,
-			   unsigned long arg)
+static ssize_t st54j_se_read(struct file *filp, char __user *ubuf, size_t len,
+			     loff_t *offset)
 {
-	int ret = 0;
 	struct st54j_se_dev *ese_dev = filp->private_data;
-	dev_dbg(&ese_dev->spi->dev, "%s: enter, cmd=%u\n", __func__, cmd);
+	ssize_t ret = -EFAULT;
+	size_t bytes = len;
+	char rx_buf[ST54_MAX_BUF];
 
-	if (cmd == ST54J_SE_RESET) {
-		dev_info(&ese_dev->spi->dev, "%s  Reset Request received!!\n",
-			 __func__);
-		mutex_lock(&ese_dev->mutex);
-		if (!IS_ERR(ese_dev->gpiod_se_reset)) {
-			/* pulse low for 5 millisecs */
-			gpiod_set_value(ese_dev->gpiod_se_reset, 0);
-			usleep_range(5000, 5500);
-			gpiod_set_value(ese_dev->gpiod_se_reset, 1);
-			dev_info(&ese_dev->spi->dev,
-				 "%s sent Reset request on eSE\n", __func__);
-		} else {
-			ret = -ENODEV;
+	if (len > INT_MAX)
+		return -EINVAL;
+	dev_dbg(&ese_dev->spi->dev, "%s : reading %zu bytes.\n", __func__,
+		bytes);
+	mutex_lock(&ese_dev->mutex);
+	while (bytes > 0) {
+		size_t block = bytes < ST54_MAX_BUF ? bytes : ST54_MAX_BUF;
+
+		memset(rx_buf, 0, ST54_MAX_BUF);
+		ret = spi_read(ese_dev->spi, rx_buf, block);
+		if (ret < 0) {
 			dev_err(&ese_dev->spi->dev,
-			"%s : Unable to request esereset %d \n",
-			__func__, IS_ERR(ese_dev->gpiod_se_reset));
+				"failed to read from SPI\n");
+			goto err;
 		}
-		mutex_unlock(&ese_dev->mutex);
+		if (copy_to_user(ubuf, rx_buf, block)) {
+			dev_err(&ese_dev->spi->dev,
+				"failed to copy from user\n");
+			goto err;
+		}
+		ubuf += block;
+		bytes -= block;
 	}
+	ret = len;
+err:
+	mutex_unlock(&ese_dev->mutex);
 	return ret;
-}
-
-static int st54j_se_open(struct inode *inode, struct file *filp)
-{
-	int ret = 0;
-	struct st54j_se_dev *ese_dev = container_of(filp->private_data,
-				struct st54j_se_dev, device);
-	if (ese_dev->device_open) {
-		ret = -EBUSY;
-		dev_info(&ese_dev->spi->dev, "%s: device already opened\n",
-			 __func__);
-	} else {
-		ese_dev->device_open = true;
-		filp->private_data = ese_dev;
-		dev_info(&ese_dev->spi->dev, "%s: device_open = %d", __func__,
-			 ese_dev->device_open);
-	}
-	return ret;
-}
-
-static int st54j_se_release(struct inode *ino, struct file *filp)
-{
-	struct st54j_se_dev *ese_dev = filp->private_data;
-
-	ese_dev->device_open = false;
-	dev_dbg(&ese_dev->spi->dev, "%s : device_open  = %d\n",
-		 __func__, ese_dev->device_open);
-	return 0;
 }
 
 static ssize_t st54j_se_write(struct file *filp, const char __user *ubuf,
@@ -135,40 +115,60 @@ err:
 	return ret;
 }
 
-static ssize_t st54j_se_read(struct file *filp, char __user *ubuf, size_t len,
-			     loff_t *offset)
+static int st54j_se_open(struct inode *inode, struct file *filp)
+{
+	int ret = 0;
+	struct st54j_se_dev *ese_dev = container_of(filp->private_data,
+				struct st54j_se_dev, device);
+	if (ese_dev->device_open) {
+		ret = -EBUSY;
+		dev_info(&ese_dev->spi->dev, "%s: device already opened\n",
+			 __func__);
+	} else {
+		ese_dev->device_open = true;
+		filp->private_data = ese_dev;
+		dev_info(&ese_dev->spi->dev, "%s: device_open = %d", __func__,
+			 ese_dev->device_open);
+	}
+	return ret;
+}
+
+static int st54j_se_release(struct inode *ino, struct file *filp)
 {
 	struct st54j_se_dev *ese_dev = filp->private_data;
-	ssize_t ret = -EFAULT;
-	size_t bytes = len;
-	char rx_buf[ST54_MAX_BUF];
 
-	if (len > INT_MAX)
-		return -EINVAL;
-	dev_dbg(&ese_dev->spi->dev, "%s : reading %zu bytes.\n", __func__,
-		bytes);
-	mutex_lock(&ese_dev->mutex);
-	while (bytes > 0) {
-		size_t block = bytes < ST54_MAX_BUF ? bytes : ST54_MAX_BUF;
+	ese_dev->device_open = false;
+	dev_dbg(&ese_dev->spi->dev, "%s : device_open  = %d\n",
+		 __func__, ese_dev->device_open);
+	return 0;
+}
 
-		memset(rx_buf, 0, ST54_MAX_BUF);
-		ret = spi_read(ese_dev->spi, rx_buf, block);
-		if (ret < 0) {
+static long st54j_se_ioctl(struct file *filp, unsigned int cmd,
+			   unsigned long arg)
+{
+	int ret = 0;
+	struct st54j_se_dev *ese_dev = filp->private_data;
+	dev_dbg(&ese_dev->spi->dev, "%s: enter, cmd=%u\n", __func__, cmd);
+
+	if (cmd == ST54J_SE_RESET) {
+		dev_info(&ese_dev->spi->dev, "%s  Reset Request received!!\n",
+			 __func__);
+		mutex_lock(&ese_dev->mutex);
+		if (!IS_ERR(ese_dev->gpiod_se_reset)) {
+			/* pulse low for 5 millisecs */
+			gpiod_set_value(ese_dev->gpiod_se_reset, 0);
+			usleep_range(5000, 5500);
+			gpiod_set_value(ese_dev->gpiod_se_reset, 1);
+			dev_info(&ese_dev->spi->dev,
+				 "%s sent Reset request on eSE\n", __func__);
+		} else {
+			ret = -ENODEV;
 			dev_err(&ese_dev->spi->dev,
-				"failed to read from SPI\n");
-			goto err;
+			"%s : Unable to request esereset %d \n",
+			__func__, IS_ERR(ese_dev->gpiod_se_reset));
 		}
-		if (copy_to_user(ubuf, rx_buf, block)) {
-			dev_err(&ese_dev->spi->dev,
-				"failed to copy from user\n");
-			goto err;
-		}
-		ubuf += block;
-		bytes -= block;
+		mutex_unlock(&ese_dev->mutex);
 	}
-	ret = len;
-err:
-	mutex_unlock(&ese_dev->mutex);
 	return ret;
 }
 
