@@ -49,6 +49,8 @@
 	dev_err(desc->dev, "%s: " fmt, desc->name, ##__VA_ARGS__)
 #define pil_info(desc, fmt, ...)					\
 	dev_info(desc->dev, "%s: " fmt, desc->name, ##__VA_ARGS__)
+#define pil_dbg(desc, fmt, ...)					\
+	dev_dbg(desc->dev, "%s: " fmt, desc->name, ##__VA_ARGS__)
 
 #if defined(CONFIG_ARM)
 #define pil_memset_io(d, c, count) memset(d, c, count)
@@ -951,7 +953,7 @@ static int pil_init_mmap(struct pil_desc *desc, const struct pil_mdt *mdt)
 	if (!strcmp(desc->name, "modem"))
 		place_marker("M - Modem Image Start Loading");
 
-	pil_info(desc, "loading from %pa to %pa\n", &priv->region_start,
+	pil_dbg(desc, "loading from %pa to %pa\n", &priv->region_start,
 							&priv->region_end);
 
 	priv->num_segs = 0;
@@ -1417,7 +1419,7 @@ int pil_boot(struct pil_desc *desc)
 	if (!strcmp(desc->name, "modem"))
 		place_marker("M - Modem out of reset");
 
-	pil_info(desc, "Brought out of reset\n");
+	pil_dbg(desc, "Brought out of reset\n");
 	desc->modem_ssr = false;
 err_auth_and_reset:
 	if (ret && desc->subsys_vmid > 0) {

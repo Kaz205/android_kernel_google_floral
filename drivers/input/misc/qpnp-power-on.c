@@ -1014,15 +1014,15 @@ static int qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 	}
 
 	if (cfg->key_code == KEY_POWER) {
-		pr_info("PMIC input: KEY_POWER %s : sts=0x%hhx, bit=0x%hhx, type=%d\n",
+		pr_debug("PMIC input: KEY_POWER %s : sts=0x%hhx, bit=0x%hhx, type=%d\n",
 			state_to_str(key_is_down), pon_rt_sts, pon_rt_bit,
 			cfg->pon_type);
 	} else if (cfg->key_code == KEY_VOLUMEDOWN) {
-		pr_info("PMIC input: KEY_VOLUMEDOWN %s : sts=0x%hhx, bit=0x%hhx, type=%d\n",
+		pr_debug("PMIC input: KEY_VOLUMEDOWN %s : sts=0x%hhx, bit=0x%hhx, type=%d\n",
 			state_to_str(key_is_down), pon_rt_sts, pon_rt_bit,
 			cfg->pon_type);
 	} else {
-		pr_info("PMIC input: code=%d, sts=0x%hhx, bit=0x%hhx, type=%d, previous=%s\n",
+		pr_debug("PMIC input: code=%d, sts=0x%hhx, bit=0x%hhx, type=%d, previous=%s\n",
 			cfg->key_code, pon_rt_sts, pon_rt_bit, cfg->pon_type,
 			state_to_str(cfg->was_down));
 	}

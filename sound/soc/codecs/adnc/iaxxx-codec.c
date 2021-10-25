@@ -2265,7 +2265,7 @@ static int iaxxx_put_route_status(struct snd_kcontrol *kcontrol,
 
 	pr_debug("enter %s connection\n", __func__);
 	if (ucontrol->value.enumerated.item[0]) {
-		dev_info(dev, "Route active request received\n");
+		dev_dbg(dev, "Route active request received\n");
 		ret = iaxxx_fw_notifier_call(priv->dev,
 				IAXXX_EV_ROUTE_ACTIVE, NULL);
 		if (ret)

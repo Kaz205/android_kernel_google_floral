@@ -1038,7 +1038,7 @@ int iaxxx_tunnel_setup(struct iaxxx_tunnel_client *client, uint32_t src,
 
 	set_bit(id, &client->tid_flag);
 	if (atomic_inc_return(&t_intf_priv->tunnel_ref_cnt[id]) == 1) {
-		pr_err("%s id found %d ref count :%d\n",
+		pr_debug("%s id found %d ref count :%d\n",
 			__func__, id,
 			atomic_read(&t_intf_priv->tunnel_ref_cnt[id]));
 		set_bit(id, &t_intf_priv->flags);

@@ -1831,7 +1831,7 @@ int iaxxx_package_unload(struct device *dev,
 	}
 
 	/* Remove package node from the list */
-	dev_info(dev, "%s() pkg_id:0x%x proc_id:%u\n", __func__,
+	dev_dbg(dev, "%s() pkg_id:0x%x proc_id:%u\n", __func__,
 							pkg_id, proc_id);
 	list_del(&pkg_data->pkg_node);
 	kvfree(pkg_data);
