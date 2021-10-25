@@ -239,9 +239,14 @@ err:
 }
 
 static struct spi_driver st54j_se_driver = {
+	.probe = st54j_se_probe,
 	.driver = {
 		.name = "st54j_se",
 	},
-	.probe = st54j_se_probe,
 };
-module_spi_driver(st54j_se_driver);
+
+static int __init st54j_se_init(void)
+{
+	return spi_register_driver(&st54j_se_driver);
+}
+device_initcall(st54j_se_init);
