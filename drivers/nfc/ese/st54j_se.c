@@ -1,39 +1,22 @@
-/* drivers/nfc/ese/st54j_se.c
+// SPDX-License-Identifier: GPL-2.0
+/*
  * Copyright (C) 2018 ST Microelectronics S.A.
  * Copyright 2019 Google Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * Copyright (C) 2021 Kazuki Hashimoto <kazukih@tuta.io>.
  */
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/fs.h>
 
 #include <linux/delay.h>
 #include <linux/gpio.h>
-#include <linux/of_gpio.h>
-#include <linux/of_device.h>
 #include <linux/spi/spi.h>
 #include <linux/uaccess.h>
-
-#include <linux/types.h>
-#include <linux/version.h>
-
-#include <linux/semaphore.h>
-#include <linux/completion.h>
-
-#include <linux/ioctl.h>
 #include <linux/miscdevice.h>
 #include <linux/spi/spi-geni-qcom.h>
-#include <uapi/linux/st54j_se.h>
-
-#ifdef CONFIG_COMPAT
-#include <linux/compat.h>
-#endif
 
 #define DRIVER_VERSION "1.1.4"
 #define ST54_MAX_BUF 258U
+
+#define ST54J_SE_MAGIC	0xE5
+#define ST54J_SE_RESET            _IOR(ST54J_SE_MAGIC, 0x01, unsigned int)
 
 struct st54j_se_dev {
 	struct spi_device	*spi;
@@ -42,21 +25,19 @@ struct st54j_se_dev {
 	bool device_open;
 	/* GPIO for SE Reset pin (output) */
 	struct gpio_desc *gpiod_se_reset;
-	char *kbuf;
 };
 
 static long st54j_se_ioctl(struct file *filp, unsigned int cmd,
 			   unsigned long arg)
 {
-	int r = 0;
+	int ret = 0;
 	struct st54j_se_dev *ese_dev = filp->private_data;
-	mutex_lock(&ese_dev->mutex);
 	dev_dbg(&ese_dev->spi->dev, "%s: enter, cmd=%u\n", __func__, cmd);
 
-	switch (cmd) {
-	case ST54J_SE_RESET:
+	if (cmd == ST54J_SE_RESET) {
 		dev_info(&ese_dev->spi->dev, "%s  Reset Request received!!\n",
 			 __func__);
+		mutex_lock(&ese_dev->mutex);
 		if (!IS_ERR(ese_dev->gpiod_se_reset)) {
 			/* pulse low for 5 millisecs */
 			gpiod_set_value(ese_dev->gpiod_se_reset, 0);
@@ -64,11 +45,15 @@ static long st54j_se_ioctl(struct file *filp, unsigned int cmd,
 			gpiod_set_value(ese_dev->gpiod_se_reset, 1);
 			dev_info(&ese_dev->spi->dev,
 				 "%s sent Reset request on eSE\n", __func__);
+		} else {
+			ret = -ENODEV;
+			dev_err(&ese_dev->spi->dev,
+			"%s : Unable to request esereset %d \n",
+			__func__, IS_ERR(ese_dev->gpiod_se_reset));
 		}
-		break;
+		mutex_unlock(&ese_dev->mutex);
 	}
-	mutex_unlock(&ese_dev->mutex);
-	return r;
+	return ret;
 }
 
 static int st54j_se_open(struct inode *inode, struct file *filp)
@@ -76,7 +61,6 @@ static int st54j_se_open(struct inode *inode, struct file *filp)
 	int ret = 0;
 	struct st54j_se_dev *ese_dev = container_of(filp->private_data,
 				struct st54j_se_dev, device);
-	mutex_lock(&ese_dev->mutex);
 	if (ese_dev->device_open) {
 		ret = -EBUSY;
 		dev_info(&ese_dev->spi->dev, "%s: device already opened\n",
@@ -87,7 +71,6 @@ static int st54j_se_open(struct inode *inode, struct file *filp)
 		dev_info(&ese_dev->spi->dev, "%s: device_open = %d", __func__,
 			 ese_dev->device_open);
 	}
-	mutex_unlock(&ese_dev->mutex);
 	return ret;
 }
 
@@ -95,9 +78,7 @@ static int st54j_se_release(struct inode *ino, struct file *filp)
 {
 	struct st54j_se_dev *ese_dev = filp->private_data;
 
-	mutex_lock(&ese_dev->mutex);
 	ese_dev->device_open = false;
-	mutex_unlock(&ese_dev->mutex);
 	dev_dbg(&ese_dev->spi->dev, "%s : device_open  = %d\n",
 		 __func__, ese_dev->device_open);
 	return 0;
@@ -109,7 +90,7 @@ static ssize_t st54j_se_write(struct file *filp, const char __user *ubuf,
 	struct st54j_se_dev *ese_dev = filp->private_data;
 	int ret = -EFAULT;
 	size_t bytes = len;
-	char *tx_buf = NULL;
+	char tx_buf[ST54_MAX_BUF];
 
 	if (len > INT_MAX)
 		return -EINVAL;
@@ -119,20 +100,14 @@ static ssize_t st54j_se_write(struct file *filp, const char __user *ubuf,
 	while (bytes > 0) {
 		size_t block = bytes < ST54_MAX_BUF ? bytes : ST54_MAX_BUF;
 
-		tx_buf = ese_dev->kbuf;
-		if (!tx_buf) {
-			dev_err(&ese_dev->spi->dev, "kbuf NULL\n");
-			ret = -ENOMEM;
-			goto err;
-		}
-		if (copy_from_user(tx_buf, ubuf, block)) {
+		ret = copy_from_user(tx_buf, ubuf, block);
+		if (ret) {
 			dev_dbg(&ese_dev->spi->dev,
 				"failed to copy from user\n");
 			goto err;
 		}
 
 		ret = spi_write(ese_dev->spi, tx_buf, block);
-
 		if (ret < 0) {
 			dev_dbg(&ese_dev->spi->dev, "failed to write to SPI\n");
 			goto err;
@@ -152,7 +127,7 @@ static ssize_t st54j_se_read(struct file *filp, char __user *ubuf, size_t len,
 	struct st54j_se_dev *ese_dev = filp->private_data;
 	ssize_t ret = -EFAULT;
 	size_t bytes = len;
-	char *rx_buf = NULL;
+	char rx_buf[ST54_MAX_BUF] = {0};
 
 	if (len > INT_MAX)
 		return -EINVAL;
@@ -162,21 +137,15 @@ static ssize_t st54j_se_read(struct file *filp, char __user *ubuf, size_t len,
 	while (bytes > 0) {
 		size_t block = bytes < ST54_MAX_BUF ? bytes : ST54_MAX_BUF;
 
-		rx_buf = ese_dev->kbuf;
-		if (!rx_buf) {
-			dev_err(&ese_dev->spi->dev, "kbuf NULL\n");
-			ret = -ENOMEM;
-			goto err;
-		}
-
-		memset(rx_buf, 0, ST54_MAX_BUF);
 		ret = spi_read(ese_dev->spi, rx_buf, block);
 		if (ret < 0) {
 			dev_err(&ese_dev->spi->dev,
 				"failed to read from SPI\n");
 			goto err;
 		}
-		if (copy_to_user(ubuf, rx_buf, block)) {
+
+		ret = copy_to_user(ubuf, rx_buf, block);
+		if (ret) {
 			dev_err(&ese_dev->spi->dev,
 				"failed to copy from user\n");
 			goto err;
@@ -197,10 +166,7 @@ static const struct file_operations st54j_se_dev_fops = {
 	.write = st54j_se_write,
 	.open = st54j_se_open,
 	.release = st54j_se_release,
-	.unlocked_ioctl = st54j_se_ioctl,
-#ifdef CONFIG_COMPAT
-	.compat_ioctl = st54j_se_ioctl
-#endif
+	.unlocked_ioctl = st54j_se_ioctl
 };
 
 static int st54j_se_probe(struct spi_device *spi)
@@ -218,17 +184,12 @@ static int st54j_se_probe(struct spi_device *spi)
 		return -EINVAL;
 	}
 
-	ese_dev = devm_kzalloc(dev, sizeof(*ese_dev), GFP_KERNEL);
+	ese_dev = kmalloc(sizeof(*ese_dev), GFP_KERNEL);
 	if (ese_dev == NULL)
 		return -ENOMEM;
 
-	spi_param = devm_kzalloc(dev, sizeof(spi_param), GFP_KERNEL);
-	if (spi_param == NULL) {
-		return -ENOMEM;
-	}
-
-	ese_dev->kbuf = devm_kzalloc(dev, ST54_MAX_BUF, GFP_KERNEL);
-	if (ese_dev->kbuf == NULL)
+	spi_param = kmalloc(sizeof(*spi_param), GFP_KERNEL);
+	if (spi_param == NULL)
 		return -ENOMEM;
 
 	ese_dev->spi = spi;
@@ -240,8 +201,7 @@ static int st54j_se_probe(struct spi_device *spi)
 	spi_param->spi_cs_clk_delay = 90;
 	spi->controller_data = spi_param;
 
-	ese_dev->gpiod_se_reset = devm_gpiod_get(dev, "esereset",
-						 GPIOD_OUT_HIGH);
+	ese_dev->gpiod_se_reset = gpiod_get(dev, "esereset", GPIOD_OUT_HIGH);
 	if (IS_ERR(ese_dev->gpiod_se_reset)) {
 		dev_err(dev,
 			"%s : Unable to request esereset %d \n",
@@ -264,44 +224,22 @@ err:
 	return ret;
 }
 
-static int st54j_se_remove(struct spi_device *spi)
-{
-	struct st54j_se_dev *ese_dev = spi_get_drvdata(spi);
-	struct spi_geni_qcom_ctrl_data *spi_param;
-	int ret = 0;
-	spi_param = ese_dev->spi->controller_data;
-
-	if (!ese_dev) {
-		dev_err(&spi->dev, "%s: device doesn't exist anymore\n",
-			__func__);
-		ret = -ENODEV;
-		goto err;
-	}
-	misc_deregister(&ese_dev->device);
-	mutex_destroy(&ese_dev->mutex);
-	kfree(spi_param);
-	kfree(ese_dev);
-err:
-	return ret;
-}
-
 static const struct of_device_id st54j_se_match_table[] = {
 	{ .compatible = "st,st54j_se" },
-	{}
+	{ }
 };
-MODULE_DEVICE_TABLE(of, st54j_se_match_table);
 
 static struct spi_driver st54j_se_driver = {
+	.probe = st54j_se_probe,
 	.driver = {
 		.name = "st54j_se",
+		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 		.of_match_table = st54j_se_match_table,
 	},
-	.probe = st54j_se_probe,
-	.remove = st54j_se_remove,
 };
-module_spi_driver(st54j_se_driver);
 
-MODULE_DESCRIPTION("ST54J eSE driver");
-MODULE_ALIAS("spi:st54j_se");
-MODULE_AUTHOR("ST Microelectronics");
-MODULE_LICENSE("GPL");
+static int __init st54j_se_init(void)
+{
+	return spi_register_driver(&st54j_se_driver);
+}
+device_initcall(st54j_se_init);
