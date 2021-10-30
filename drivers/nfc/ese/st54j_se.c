@@ -21,10 +21,6 @@
 #include <linux/miscdevice.h>
 #include <linux/spi/spi-geni-qcom.h>
 
-#ifdef CONFIG_COMPAT
-#include <linux/compat.h>
-#endif
-
 #define DRIVER_VERSION "1.1.4"
 #define ST54_MAX_BUF 258U
 
@@ -177,10 +173,7 @@ static const struct file_operations st54j_se_dev_fops = {
 	.write = st54j_se_write,
 	.open = st54j_se_open,
 	.release = st54j_se_release,
-	.unlocked_ioctl = st54j_se_ioctl,
-#ifdef CONFIG_COMPAT
-	.compat_ioctl = st54j_se_ioctl
-#endif
+	.unlocked_ioctl = st54j_se_ioctl
 };
 
 static int st54j_se_probe(struct spi_device *spi)
