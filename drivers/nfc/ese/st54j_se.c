@@ -225,6 +225,7 @@ static struct spi_driver st54j_se_driver = {
 	.probe = st54j_se_probe,
 	.driver = {
 		.name = "st54j_se",
+		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	},
 };
 
