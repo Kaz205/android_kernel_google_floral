@@ -90,7 +90,7 @@ static ssize_t st54j_se_write(struct file *filp, const char __user *ubuf,
 {
 	struct st54j_se_dev *ese_dev = filp->private_data;
 	int ret = -EFAULT;
-	ssize_t bytes;
+	size_t bytes = len;
 	char tx_buf[ST54_MAX_BUF];
 
 	if (len > INT_MAX)
@@ -98,7 +98,7 @@ static ssize_t st54j_se_write(struct file *filp, const char __user *ubuf,
 	dev_dbg(&ese_dev->spi->dev, "%s : writing %zu bytes.\n", __func__,
 		bytes);
 	mutex_lock(&ese_dev->mutex);
-	for (bytes = len; bytes > 0; bytes -= ST54_MAX_BUF) {
+	while (bytes > 0) {
 		size_t block = bytes < ST54_MAX_BUF ? bytes : ST54_MAX_BUF;
 
 		if (copy_from_user(tx_buf, ubuf, block)) {
@@ -114,6 +114,7 @@ static ssize_t st54j_se_write(struct file *filp, const char __user *ubuf,
 			goto err;
 		}
 		ubuf += block;
+		bytes -= block;
 	}
 	ret = len;
 err:
@@ -126,7 +127,7 @@ static ssize_t st54j_se_read(struct file *filp, char __user *ubuf, size_t len,
 {
 	struct st54j_se_dev *ese_dev = filp->private_data;
 	ssize_t ret = -EFAULT;
-	ssize_t bytes;
+	size_t bytes = len;
 	char rx_buf[ST54_MAX_BUF];
 
 	if (len > INT_MAX)
@@ -134,7 +135,7 @@ static ssize_t st54j_se_read(struct file *filp, char __user *ubuf, size_t len,
 	dev_dbg(&ese_dev->spi->dev, "%s : reading %zu bytes.\n", __func__,
 		bytes);
 	mutex_lock(&ese_dev->mutex);
-	for (bytes = len; bytes > 0; bytes -= ST54_MAX_BUF) {
+	while (bytes > 0) {
 		size_t block = bytes < ST54_MAX_BUF ? bytes : ST54_MAX_BUF;
 
 		memset(rx_buf, 0, ST54_MAX_BUF);
@@ -150,6 +151,7 @@ static ssize_t st54j_se_read(struct file *filp, char __user *ubuf, size_t len,
 			goto err;
 		}
 		ubuf += block;
+		bytes -= block;
 	}
 	ret = len;
 err:
