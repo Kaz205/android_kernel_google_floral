@@ -6,18 +6,10 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/fs.h>
-
 #include <linux/delay.h>
 #include <linux/gpio.h>
-#include <linux/of_gpio.h>
-#include <linux/of_device.h>
 #include <linux/spi/spi.h>
 #include <linux/uaccess.h>
-
-#include <linux/ioctl.h>
 #include <linux/miscdevice.h>
 #include <linux/spi/spi-geni-qcom.h>
 
