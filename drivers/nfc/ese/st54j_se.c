@@ -129,7 +129,7 @@ static ssize_t st54j_se_read(struct file *filp, char __user *ubuf, size_t len,
 	struct st54j_se_dev *ese_dev = filp->private_data;
 	ssize_t ret = -EFAULT;
 	size_t bytes = len;
-	char rx_buf[ST54_MAX_BUF];
+	char rx_buf[ST54_MAX_BUF] = {0};
 
 	if (len > INT_MAX)
 		return -EINVAL;
@@ -139,7 +139,6 @@ static ssize_t st54j_se_read(struct file *filp, char __user *ubuf, size_t len,
 	while (bytes > 0) {
 		size_t block = bytes < ST54_MAX_BUF ? bytes : ST54_MAX_BUF;
 
-		memset(rx_buf, 0, ST54_MAX_BUF);
 		ret = spi_read(ese_dev->spi, rx_buf, block);
 		if (ret < 0) {
 			dev_err(&ese_dev->spi->dev,
