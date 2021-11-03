@@ -1129,8 +1129,6 @@ static irqreturn_t fts_interrupt_handler(int irq, void *handle)
 	pm_qos_update_request(&info->pm_touch_req, 100);
 	pm_qos_update_request(&info->pm_spi_req, 100);
 
-	__pm_wakeup_event(&info->wakesrc, jiffies_to_msecs(HZ));
-
 	/* Read the first FIFO event and the number of events remaining */
 	error = fts_writeReadU8UX(regAdd, 0, 0, data, FIFO_EVENT_SIZE,
 				  DUMMY_FIFO);
