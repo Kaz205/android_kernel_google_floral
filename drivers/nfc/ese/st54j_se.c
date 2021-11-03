@@ -101,14 +101,14 @@ static ssize_t st54j_se_write(struct file *filp, const char __user *ubuf,
 	while (bytes > 0) {
 		size_t block = bytes < ST54_MAX_BUF ? bytes : ST54_MAX_BUF;
 
-		if (copy_from_user(tx_buf, ubuf, block)) {
+		ret = copy_from_user(tx_buf, ubuf, block);
+		if (ret) {
 			dev_dbg(&ese_dev->spi->dev,
 				"failed to copy from user\n");
 			goto err;
 		}
 
 		ret = spi_write(ese_dev->spi, tx_buf, block);
-
 		if (ret < 0) {
 			dev_dbg(&ese_dev->spi->dev, "failed to write to SPI\n");
 			goto err;
@@ -145,7 +145,9 @@ static ssize_t st54j_se_read(struct file *filp, char __user *ubuf, size_t len,
 				"failed to read from SPI\n");
 			goto err;
 		}
-		if (copy_to_user(ubuf, rx_buf, block)) {
+
+		ret = copy_to_user(ubuf, rx_buf, block);
+		if (ret) {
 			dev_err(&ese_dev->spi->dev,
 				"failed to copy from user\n");
 			goto err;
