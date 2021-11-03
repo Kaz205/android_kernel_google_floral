@@ -889,7 +889,6 @@ static bool read_heatmap_raw(struct v4l2_heatmap *v4l2, strength_t *data)
 
 	return true;
 }
-#endif
 
 /* Update a state machine used to toggle control of the touch IC's motion
  * filter.
@@ -948,6 +947,7 @@ static int update_motion_filter(struct fts_ts_info *info)
 
 	return 0;
 }
+#endif /* CONFIG_TOUCHSCREEN_HEATMAP */
 
 #ifdef CONFIG_TOUCHSCREEN_OFFLOAD
 
@@ -1202,10 +1202,11 @@ static irqreturn_t fts_interrupt_handler(int irq, void *handle)
 #if IS_ENABLED(CONFIG_TOUCHSCREEN_HEATMAP)
 	if (processed_pointer_event)
 		heatmap_read(&info->v4l2, ktime_to_ns(info->timestamp));
-#endif
 
 	/* Disable the firmware motion filter during single touch */
-	update_motion_filter(info);
+	if (!info->offload.offload_running)
+		update_motion_filter(info);
+#endif
 
 	pm_qos_update_request(&info->pm_spi_req, PM_QOS_DEFAULT_VALUE);
 	pm_qos_update_request(&info->pm_touch_req, PM_QOS_DEFAULT_VALUE);
