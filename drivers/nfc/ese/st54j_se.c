@@ -1,11 +1,10 @@
-/* drivers/nfc/ese/st54j_se.c
+// SPDX-License-Identifier: GPL-2.0
+/*
  * Copyright (C) 2018 ST Microelectronics S.A.
  * Copyright 2019 Google Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * Copyright (C) 2021 Kazuki Hashimoto <kazukih@tuta.io>.
  */
+
 #include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/spi/spi.h>
