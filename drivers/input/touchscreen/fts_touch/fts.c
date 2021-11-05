@@ -1103,13 +1103,13 @@ static void fts_populate_frame(struct fts_ts_info *info,
 static irqreturn_t fts_interrupt_handler(int irq, void *handle)
 {
 	struct fts_ts_info *info = handle;
-	int error = 0, count = 0;
+	int error, count;
 	unsigned char regAdd = FIFO_CMD_READALL;
 	unsigned char data[FIFO_EVENT_SIZE * FIFO_DEPTH];
 	unsigned char eventId;
 	const unsigned char EVENTS_REMAINING_POS = 7;
 	const unsigned char EVENTS_REMAINING_MASK = 0x1F;
-	unsigned char events_remaining = 0;
+	unsigned char events_remaining;
 	unsigned char *evt_data;
 	bool processed_pointer_event = false;
 
@@ -1120,7 +1120,7 @@ static irqreturn_t fts_interrupt_handler(int irq, void *handle)
 	/* It is possible that interrupts were disabled while the handler is
 	 * executing, before acquiring the mutex. If so, simply return.
 	 */
-	if (fts_set_bus_ref(info, FTS_BUS_REF_IRQ, true) < 0) {
+	if (unlikely(fts_set_bus_ref(info, FTS_BUS_REF_IRQ, true) < 0)) {
 		fts_set_bus_ref(info, FTS_BUS_REF_IRQ, false);
 		return IRQ_HANDLED;
 	}
@@ -1137,12 +1137,12 @@ static irqreturn_t fts_interrupt_handler(int irq, void *handle)
 			   FIFO_DEPTH - 1 : events_remaining;
 
 	/* Drain the rest of the FIFO, up to 31 events */
-	if (error == OK && events_remaining > 0) {
+	if (likely(error == OK && events_remaining > 0)) {
 		error = fts_writeReadU8UX(regAdd, 0, 0, &data[FIFO_EVENT_SIZE],
 					  FIFO_EVENT_SIZE * events_remaining,
 					  DUMMY_FIFO);
 	}
-	if (error != OK) {
+	if (unlikely(error != OK)) {
 		pr_err("Error (%08X) while reading from FIFO in fts_event_handler\n",
 			error);
 	} else {
