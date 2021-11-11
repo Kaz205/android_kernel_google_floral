@@ -37,7 +37,6 @@
 #include <linux/gpio/consumer.h>
 #include <net/nfc/nci.h>
 #include <linux/clk.h>
-#include "st21nfc.h"
 
 #define MAX_BUFFER_SIZE 260
 #define HEADER_LENGTH 3
@@ -45,6 +44,19 @@
 #define WAKEUP_SRC_TIMEOUT		(2000)
 
 #define DRIVER_VERSION "2.0.14"
+#define ST21NFC_NAME "st21nfc"
+
+#define ST21NFC_MAGIC	0xEA
+/*
+ * ST21NFC power control via ioctl
+ * ST21NFC_GET_WAKEUP :  poll gpio-level for Wakeup pin
+ */
+#define ST21NFC_GET_WAKEUP	      _IOR(ST21NFC_MAGIC, 0x01, unsigned int)
+#define ST21NFC_PULSE_RESET		_IOR(ST21NFC_MAGIC, 0x02, unsigned int)
+#define ST21NFC_SET_POLARITY_RISING   _IOR(ST21NFC_MAGIC, 0x03, unsigned int)
+#define ST21NFC_SET_POLARITY_HIGH     _IOR(ST21NFC_MAGIC, 0x05, unsigned int)
+#define ST21NFC_GET_POLARITY	      _IOR(ST21NFC_MAGIC, 0x07, unsigned int)
+#define ST21NFC_RECOVERY              _IOR(ST21NFC_MAGIC, 0x08, unsigned int)
 
 enum st21nfc_read_state {
 	ST21NFC_HEADER,
