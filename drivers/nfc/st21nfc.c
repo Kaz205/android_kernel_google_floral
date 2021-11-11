@@ -680,146 +680,6 @@ static const struct file_operations st21nfc_dev_fops = {
 #endif
 };
 
-static ssize_t st21nfc_show_i2c_addr(struct device *dev,
-				     struct device_attribute *attr, char *buf)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-
-	if (client != NULL)
-		return scnprintf(buf, PAGE_SIZE, "0x%.2x\n", client->addr);
-	return -ENODEV;
-}
-
-static ssize_t st21nfc_change_i2c_addr(struct device *dev,
-				       struct device_attribute *attr,
-				       const char *buf, size_t count)
-{
-	struct st21nfc_device *data = dev_get_drvdata(dev);
-	long new_addr = 0;
-
-	if (data != NULL && data->client != NULL) {
-		if (!kstrtol(buf, 10, &new_addr)) {
-			mutex_lock(&data->read_mutex);
-			data->client->addr = new_addr;
-			mutex_unlock(&data->read_mutex);
-			return count;
-		}
-		return -EINVAL;
-	}
-	return 0;
-}
-
-static ssize_t st21nfc_version(struct device *dev,
-			       struct device_attribute *attr, char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "%s\n", DRIVER_VERSION);
-}
-
-static uint64_t st21nfc_power_duration(struct st21nfc_device *data,
-				       enum st21nfc_power_state pstate,
-				       uint64_t current_time_ms)
-{
-
-	return data->c_pw_current != pstate ?
-		data->c_pw_states[pstate].duration :
-		data->c_pw_states[pstate].duration +
-		(current_time_ms - data->c_pw_states[pstate].last_entry);
-}
-
-static ssize_t st21nfc_show_power_stats(struct device *dev,
-					struct device_attribute *attr,
-					char *buf)
-{
-	struct st21nfc_device *data = dev_get_drvdata(dev);
-	uint64_t current_time_ms;
-	uint64_t idle_duration;
-	uint64_t active_ce_duration;
-	uint64_t active_rw_duration;
-
-	mutex_lock(&data->pidle_mutex);
-
-	data->c_pw_current = data->pw_current;
-	data->c_pw_states_err = data->pw_states_err;
-	memcpy(data->c_pw_states, data->pw_states,
-	       ST21NFC_POWER_STATE_MAX * sizeof(struct nfc_sub_power_stats));
-
-	mutex_unlock(&data->pidle_mutex);
-
-	current_time_ms = ktime_to_ms(ktime_get_boottime());
-	idle_duration = st21nfc_power_duration(data, ST21NFC_IDLE,
-					       current_time_ms);
-	active_ce_duration = st21nfc_power_duration(data, ST21NFC_ACTIVE,
-						    current_time_ms);
-	active_rw_duration = st21nfc_power_duration(data, ST21NFC_ACTIVE_RW,
-						    current_time_ms);
-
-	return scnprintf(buf, PAGE_SIZE,
-		"NFC subsystem\n"
-		"Idle mode:\n"
-		"\tCumulative count: 0x%llx\n"
-		"\tCumulative duration msec: 0x%llx\n"
-		"\tLast entry timestamp msec: 0x%llx\n"
-		"\tLast exit timestamp msec: 0x%llx\n"
-		"Active mode:\n"
-		"\tCumulative count: 0x%llx\n"
-		"\tCumulative duration msec: 0x%llx\n"
-		"\tLast entry timestamp msec: 0x%llx\n"
-		"\tLast exit timestamp msec: 0x%llx\n"
-		"Active Reader/Writer mode:\n"
-		"\tCumulative count: 0x%llx\n"
-		"\tCumulative duration msec: 0x%llx\n"
-		"\tLast entry timestamp msec: 0x%llx\n"
-		"\tLast exit timestamp msec: 0x%llx\n"
-		"\nError transition header --> payload state machine: 0x%llx\n"
-		"Error transition from an Active state when not in Idle state: 0x%llx\n"
-		"Error transition from Idle state to Idle state: 0x%llx\n"
-		"Warning transition from Active Reader/Writer state to Idle state: 0x%llx\n"
-		"Error transition from Active state to Active state: 0x%llx\n"
-		"Error transition from Idle state to Active state with notification: 0x%llx\n"
-		"Error transition from Active Reader/Writer state to Active Reader/Writer state: 0x%llx\n"
-		"Error transition from Idle state to Active Reader/Writer state with notification: 0x%llx\n"
-		"\nTotal uptime: 0x%llx Cumulative modes time: 0x%llx\n",
-		data->c_pw_states[ST21NFC_IDLE].count,
-		idle_duration,
-		data->c_pw_states[ST21NFC_IDLE].last_entry,
-		data->c_pw_states[ST21NFC_IDLE].last_exit,
-		data->c_pw_states[ST21NFC_ACTIVE].count,
-		active_ce_duration,
-		data->c_pw_states[ST21NFC_ACTIVE].last_entry,
-		data->c_pw_states[ST21NFC_ACTIVE].last_exit,
-		data->c_pw_states[ST21NFC_ACTIVE_RW].count,
-		active_rw_duration,
-		data->c_pw_states[ST21NFC_ACTIVE_RW].last_entry,
-		data->c_pw_states[ST21NFC_ACTIVE_RW].last_exit,
-		data->c_pw_states_err.header_payload,
-		data->c_pw_states_err.active_not_idle,
-		data->c_pw_states_err.idle_to_idle,
-		data->c_pw_states_err.active_rw_to_idle,
-		data->c_pw_states_err.active_to_active,
-		data->c_pw_states_err.idle_to_active_ntf,
-		data->c_pw_states_err.act_rw_to_act_rw,
-		data->c_pw_states_err.idle_to_active_rw_ntf,
-		current_time_ms,
-		idle_duration + active_ce_duration + active_rw_duration);
-}
-
-static DEVICE_ATTR(i2c_addr, S_IRUGO | S_IWUSR, st21nfc_show_i2c_addr,
-		   st21nfc_change_i2c_addr);
-
-static DEVICE_ATTR(version, S_IRUGO, st21nfc_version, NULL);
-
-static DEVICE_ATTR(power_stats, 0444, st21nfc_show_power_stats, NULL);
-
-static struct attribute *st21nfc_attrs[] = {
-	&dev_attr_i2c_addr.attr,
-	&dev_attr_version.attr,
-	NULL,
-};
-
-static struct attribute_group st21nfc_attr_grp = {
-	.attrs = st21nfc_attrs,
-};
-
 static int st21nfc_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
@@ -887,15 +747,6 @@ static int st21nfc_probe(struct i2c_client *client,
 			__func__);
 			goto err_pidle_workqueue;
 		}
-
-		ret = sysfs_create_file(&dev->kobj,
-					&dev_attr_power_stats.attr);
-		if (ret) {
-			pr_err(
-			"%s : sysfs_create_file for power stats failed\n",
-			__func__);
-			goto err_pidle_workqueue;
-		}
 	}
 
 	st21nfc_dev->gpiod_clkreq = devm_gpiod_get(dev, "clkreq", GPIOD_IN);
@@ -919,7 +770,7 @@ static int st21nfc_probe(struct i2c_client *client,
 		ret = st21nfc_clock_select(st21nfc_dev);
 		if (ret < 0) {
 			pr_err("%s : st21nfc_clock_select failed\n", __func__);
-			goto err_sysfs_power_stats;
+			goto err_pidle_workqueue;
 		}
 	}
 
@@ -950,27 +801,14 @@ static int st21nfc_probe(struct i2c_client *client,
 		pr_err("%s : misc_register failed\n", __func__);
 		goto err_misc_register;
 	}
-
-	ret = sysfs_create_group(&dev->kobj, &st21nfc_attr_grp);
-	if (ret) {
-		pr_err("%s : sysfs_create_group failed\n", __func__);
-		goto err_sysfs_create_group_failed;
-	}
 	device_init_wakeup(&client->dev, true);
 	device_set_wakeup_capable(&client->dev, true);
 	st21nfc_dev->irq_wake_up = false;
 
 	return 0;
 
-err_sysfs_create_group_failed:
-	misc_deregister(&st21nfc_dev->st21nfc_device);
 err_misc_register:
 	mutex_destroy(&st21nfc_dev->read_mutex);
-err_sysfs_power_stats:
-	if (!IS_ERR(st21nfc_dev->gpiod_pidle)) {
-		sysfs_remove_file(&client->dev.kobj,
-				  &dev_attr_power_stats.attr);
-	}
 err_pidle_workqueue:
 	if (!IS_ERR(st21nfc_dev->gpiod_pidle)) {
 		mutex_destroy(&st21nfc_dev->pidle_mutex);
