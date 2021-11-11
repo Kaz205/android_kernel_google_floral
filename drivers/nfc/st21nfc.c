@@ -16,7 +16,6 @@
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #include <linux/kernel.h>
-#include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/version.h>
 #include <linux/slab.h>
@@ -172,24 +171,6 @@ static int st21nfc_clock_select(struct st21nfc_device *st21nfc_dev)
 err_clk:
 	return -EINVAL;
 }
-
-/*
- * Routine to disable clocks
- */
-static int st21nfc_clock_deselect(struct st21nfc_device *st21nfc_dev)
-{
-	/* if NULL we assume external crystal and dont fail */
-	if ((st21nfc_dev->s_clk == NULL) || IS_ERR(st21nfc_dev->s_clk))
-		return 0;
-
-	if (st21nfc_dev->clk_run == true) {
-		clk_disable_unprepare(st21nfc_dev->s_clk);
-		st21nfc_dev->clk_run = false;
-	}
-	return 0;
-}
-
-
 
 static void st21nfc_disable_irq(struct st21nfc_device *st21nfc_dev)
 {
@@ -1016,24 +997,6 @@ err_pidle_workqueue:
 	return ret;
 }
 
-static int st21nfc_remove(struct i2c_client *client)
-{
-	struct st21nfc_device *st21nfc_dev = i2c_get_clientdata(client);
-
-	st21nfc_clock_deselect(st21nfc_dev);
-	misc_deregister(&st21nfc_dev->st21nfc_device);
-	if (!IS_ERR(st21nfc_dev->gpiod_pidle)) {
-		sysfs_remove_file(&client->dev.kobj,
-				  &dev_attr_power_stats.attr);
-		mutex_destroy(&st21nfc_dev->pidle_mutex);
-	}
-	sysfs_remove_group(&client->dev.kobj, &st21nfc_attr_grp);
-	mutex_destroy(&st21nfc_dev->read_mutex);
-	acpi_dev_remove_driver_gpios(ACPI_COMPANION(&client->dev));
-
-	return 0;
-}
-
 static int st21nfc_suspend(struct device *device)
 {
 	struct i2c_client *client = to_i2c_client(device);
@@ -1085,7 +1048,6 @@ static const struct of_device_id st21nfc_of_match[] = {
 	{ .compatible = "st,st21nfc", },
 	{}
 };
-MODULE_DEVICE_TABLE(of, st21nfc_of_match);
 
 static const struct dev_pm_ops st21nfc_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(st21nfc_suspend, st21nfc_resume)
@@ -1095,7 +1057,6 @@ static const struct acpi_device_id st21nfc_acpi_match[] = {
 	{"SMO2104"},
 	{}
 };
-MODULE_DEVICE_TABLE(acpi, st21nfc_acpi_match);
 
 static struct i2c_driver st21nfc_driver = {
 	.id_table = st21nfc_id,
@@ -1108,12 +1069,7 @@ static struct i2c_driver st21nfc_driver = {
 		.acpi_match_table = ACPI_PTR(st21nfc_acpi_match),
 	},
 	.probe		= st21nfc_probe,
-	.remove		= st21nfc_remove,
 };
-
-/*
- * module load/unload record keeping
- */
 
 static int __init st21nfc_dev_init(void)
 {
@@ -1121,18 +1077,4 @@ static int __init st21nfc_dev_init(void)
 		__func__, DRIVER_VERSION);
 	return i2c_add_driver(&st21nfc_driver);
 }
-
-module_init(st21nfc_dev_init);
-
-static void __exit st21nfc_dev_exit(void)
-{
-	pr_debug("Unloading st21nfc driver\n");
-	i2c_del_driver(&st21nfc_driver);
-}
-
-module_exit(st21nfc_dev_exit);
-
-MODULE_AUTHOR("STMicroelectronics");
-MODULE_DESCRIPTION("NFC ST21NFC driver");
-MODULE_VERSION(DRIVER_VERSION);
-MODULE_LICENSE("GPL");
+device_initcall(st21nfc_dev_init);
