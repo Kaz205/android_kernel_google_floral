@@ -468,10 +468,7 @@ static const struct file_operations st21nfc_dev_fops = {
 	.open = st21nfc_dev_open,
 	.poll = st21nfc_poll,
 	.release = st21nfc_release,
-	.unlocked_ioctl = st21nfc_dev_ioctl,
-#ifdef CONFIG_COMPAT
-	.compat_ioctl = st21nfc_dev_ioctl
-#endif
+	.unlocked_ioctl = st21nfc_dev_ioctl
 };
 
 static int st21nfc_probe(struct i2c_client *client,
