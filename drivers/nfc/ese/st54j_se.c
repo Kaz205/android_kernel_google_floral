@@ -133,7 +133,7 @@ static ssize_t st54j_se_read(struct file *filp, char __user *ubuf, size_t len,
 		return -EINVAL;
 	dev_dbg(&ese_dev->spi->dev, "%s : reading %zu bytes.\n", __func__,
 		bytes);
-	memset(rx_buf, 0, ST54_MAX_BUF);
+	memset(rx_buf, 0, sizeof(rx_buf));
 	mutex_lock(&ese_dev->mutex);
 	while (bytes > 0) {
 		size_t block = bytes < ST54_MAX_BUF ? bytes : ST54_MAX_BUF;
