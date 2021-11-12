@@ -275,7 +275,6 @@ static ssize_t st21nfc_dev_write(struct file *filp, const char __user *buf,
 {
 	struct st21nfc_device *st21nfc_dev = container_of(filp->private_data,
 				   struct st21nfc_device, st21nfc_device);
-	char *tmp = NULL;
 	int ret;
 
 	pr_debug("%s: st21nfc_dev ptr %p\n", __func__, st21nfc_dev);
@@ -283,20 +282,18 @@ static ssize_t st21nfc_dev_write(struct file *filp, const char __user *buf,
 	if (count > MAX_BUFFER_SIZE)
 		count = MAX_BUFFER_SIZE;
 
-	tmp = memdup_user(buf, count);
-	if (IS_ERR(tmp)) {
-		pr_err("%s : memdup_user failed\n", __func__);
+	if (copy_from_user(st21nfc_dev->buffer, buf, count)) {
+		pr_warn("%s : failed to copy from user space\n", __func__);
 		return -EFAULT;
 	}
 
 	pr_debug("%s : writing %zu bytes.\n", __func__, count);
 	/* Write data */
-	ret = i2c_master_send(st21nfc_dev->client, tmp, count);
+	ret = i2c_master_send(st21nfc_dev->client, st21nfc_dev->buffer, count);
 	if (ret != count) {
 		pr_err("%s : i2c_master_send returned %d\n", __func__, ret);
 		ret = -EIO;
 	}
-	kfree(tmp);
 
 	return ret;
 }
