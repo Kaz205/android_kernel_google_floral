@@ -5,24 +5,13 @@
  * Copyright (C) 2010 Trusted Logic S.A.
  */
 
-#include <linux/kernel.h>
-#include <linux/fs.h>
-#include <linux/version.h>
-#include <linux/slab.h>
-#include <linux/init.h>
-#include <linux/list.h>
 #include <linux/i2c.h>
 #include <linux/irq.h>
-#include <linux/jiffies.h>
 #include <linux/uaccess.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
-#include <linux/io.h>
-#include <linux/platform_device.h>
 #include <linux/poll.h>
 #include <linux/miscdevice.h>
-#include <linux/spinlock.h>
-#include <linux/of_gpio.h>
 #include <linux/workqueue.h>
 #include <linux/gpio/consumer.h>
 #include <net/nfc/nci.h>
