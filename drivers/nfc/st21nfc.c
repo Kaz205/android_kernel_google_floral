@@ -71,8 +71,6 @@ struct st21nfc_device {
 	struct gpio_desc *gpiod_irq;
 	/* GPIO for NFCC Reset pin (output) */
 	struct gpio_desc *gpiod_reset;
-	/* GPIO for NFCC CLK_REQ pin (input) */
-	struct gpio_desc *gpiod_clkreq;
 	/* irq_gpio polarity to be used */
 	unsigned int polarity_mode;
 };
@@ -437,23 +435,18 @@ static int st21nfc_probe(struct i2c_client *client,
 	if (IS_ERR(st21nfc_dev->gpiod_reset))
 		return -ENODEV;
 
-	st21nfc_dev->gpiod_clkreq = devm_gpiod_get(dev, "clkreq", GPIOD_IN);
-	if (IS_ERR(st21nfc_dev->gpiod_clkreq)) {
-		ret = 0;
-	} else {
-		if (!device_property_read_bool(dev, "st,clk_pinctrl"))
-			st21nfc_dev->pinctrl_en = 0;
-		else
-			st21nfc_dev->pinctrl_en = 1;
+	if (!device_property_read_bool(dev, "st,clk_pinctrl"))
+		st21nfc_dev->pinctrl_en = 0;
+	else
+		st21nfc_dev->pinctrl_en = 1;
 
-		/* Set clk_run when clock pinctrl already enabled */
-		if (st21nfc_dev->pinctrl_en != 0)
-			st21nfc_dev->clk_run = true;
+	/* Set clk_run when clock pinctrl already enabled */
+	if (st21nfc_dev->pinctrl_en != 0)
+		st21nfc_dev->clk_run = true;
 
-		ret = st21nfc_clock_select(st21nfc_dev);
-		if (ret < 0)
-			goto err_misc_register;
-	}
+	ret = st21nfc_clock_select(st21nfc_dev);
+	if (ret < 0)
+		goto err_misc_register;
 
 	client->irq = gpiod_to_irq(st21nfc_dev->gpiod_irq);
 
