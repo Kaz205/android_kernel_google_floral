@@ -34,7 +34,6 @@
 #include <linux/spinlock.h>
 #include <linux/of_gpio.h>
 #include <linux/workqueue.h>
-#include <linux/acpi.h>
 #include <linux/gpio/consumer.h>
 #include <net/nfc/nci.h>
 #include <linux/clk.h>
@@ -821,18 +820,6 @@ static struct attribute_group st21nfc_attr_grp = {
 	.attrs = st21nfc_attrs,
 };
 
-static const struct acpi_gpio_params irq_gpios = {0, 0, false };
-static const struct acpi_gpio_params reset_gpios = {1, 0, false };
-static const struct acpi_gpio_params pidle_gpios = {2, 0, false};
-static const struct acpi_gpio_params clkreq_gpios = {3, 0, false};
-
-static const struct acpi_gpio_mapping acpi_st21nfc_gpios[] = {
-	{ "irq-gpios", &irq_gpios, 1},
-	{ "reset-gpios", &reset_gpios, 1},
-	{ "pidle-gpios", &pidle_gpios, 1},
-	{ "clkreq-gpios", &clkreq_gpios, 1},
-};
-
 static int st21nfc_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
@@ -853,11 +840,6 @@ static int st21nfc_probe(struct i2c_client *client,
 	st21nfc_dev->client = client;
 	st21nfc_dev->r_state_current = ST21NFC_HEADER;
 	client->adapter->retries = 0;
-
-	ret = acpi_dev_add_driver_gpios(ACPI_COMPANION(dev),
-					acpi_st21nfc_gpios);
-	if (ret)
-		pr_debug("Unable to add GPIO mapping table\n");
 
 	st21nfc_dev->gpiod_irq = devm_gpiod_get(dev, "irq", GPIOD_IN);
 	if (IS_ERR(st21nfc_dev->gpiod_irq)) {
@@ -1053,11 +1035,6 @@ static const struct dev_pm_ops st21nfc_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(st21nfc_suspend, st21nfc_resume)
 };
 
-static const struct acpi_device_id st21nfc_acpi_match[] = {
-	{"SMO2104"},
-	{}
-};
-
 static struct i2c_driver st21nfc_driver = {
 	.id_table = st21nfc_id,
 	.driver = {
@@ -1066,7 +1043,6 @@ static struct i2c_driver st21nfc_driver = {
 		.of_match_table	= st21nfc_of_match,
 		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 		.pm = &st21nfc_pm_ops,
-		.acpi_match_table = ACPI_PTR(st21nfc_acpi_match),
 	},
 	.probe		= st21nfc_probe,
 };
