@@ -63,9 +63,7 @@ struct st21nfc_device {
 	enum st21nfc_read_state r_state_current;
 
 	/* CLK control */
-	bool clk_run;
 	struct clk *s_clk;
-	uint8_t pinctrl_en;
 
 	/* GPIO for NFCC IRQ pin (input) */
 	struct gpio_desc *gpiod_irq;
@@ -80,9 +78,14 @@ struct st21nfc_device {
  * this routine can be extended to select from multiple
  * sources based on clk_src_name.
  */
-static int st21nfc_clock_select(struct st21nfc_device *st21nfc_dev)
+static int st21nfc_clock_select(struct st21nfc_device *st21nfc_dev,
+				struct device *dev)
 {
-	int ret = 0;
+	int ret;
+
+	/* Don't initialize clock if pinctrl is enabled */
+	if (device_property_read_bool(dev, "st,clk_pinctrl"))
+		return 0;
 
 	st21nfc_dev->s_clk = clk_get(&st21nfc_dev->client->dev, "nfc_ref_clk");
 
@@ -90,14 +93,11 @@ static int st21nfc_clock_select(struct st21nfc_device *st21nfc_dev)
 	if ((st21nfc_dev->s_clk == NULL) || IS_ERR(st21nfc_dev->s_clk))
 		return 0;
 
-	if (st21nfc_dev->clk_run == false) {
-		ret = clk_prepare_enable(st21nfc_dev->s_clk);
-		if (ret)
-			return -EINVAL;
+	ret = clk_prepare_enable(st21nfc_dev->s_clk);
+	if (ret)
+		return -EINVAL;
 
-		st21nfc_dev->clk_run = true;
-	}
-	return ret;
+	return 0;
 }
 
 static void st21nfc_disable_irq(struct st21nfc_device *st21nfc_dev)
@@ -435,16 +435,7 @@ static int st21nfc_probe(struct i2c_client *client,
 	if (IS_ERR(st21nfc_dev->gpiod_reset))
 		return -ENODEV;
 
-	if (!device_property_read_bool(dev, "st,clk_pinctrl"))
-		st21nfc_dev->pinctrl_en = 0;
-	else
-		st21nfc_dev->pinctrl_en = 1;
-
-	/* Set clk_run when clock pinctrl already enabled */
-	if (st21nfc_dev->pinctrl_en != 0)
-		st21nfc_dev->clk_run = true;
-
-	ret = st21nfc_clock_select(st21nfc_dev);
+	ret = st21nfc_clock_select(st21nfc_dev, dev);
 	if (ret < 0)
 		goto err_misc_register;
 
