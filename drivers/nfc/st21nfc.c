@@ -437,7 +437,7 @@ static int st21nfc_probe(struct i2c_client *client,
 
 	ret = st21nfc_clock_select(st21nfc_dev, dev);
 	if (ret)
-		goto err_misc_register;
+		return ret;
 
 	client->irq = gpiod_to_irq(st21nfc_dev->gpiod_irq);
 
