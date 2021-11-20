@@ -160,6 +160,7 @@ err:
 }
 
 static const struct file_operations st54j_se_dev_fops = {
+	.owner = THIS_MODULE,
 	.llseek = no_llseek,
 	.read = st54j_se_read,
 	.write = st54j_se_write,
@@ -223,11 +224,17 @@ err:
 	return ret;
 }
 
+static const struct of_device_id st54j_se_match_table[] = {
+	{ .compatible = "st,st54j_se" },
+	{ }
+};
+
 static struct spi_driver st54j_se_driver = {
 	.probe = st54j_se_probe,
 	.driver = {
 		.name = "st54j_se",
 		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
+		.of_match_table = st54j_se_match_table,
 	},
 };
 
