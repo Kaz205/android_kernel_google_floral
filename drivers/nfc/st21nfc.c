@@ -33,7 +33,6 @@
 #define ST21NFC_GET_WAKEUP	      _IOR(ST21NFC_MAGIC, 0x01, unsigned int)
 #define ST21NFC_PULSE_RESET		_IOR(ST21NFC_MAGIC, 0x02, unsigned int)
 #define ST21NFC_SET_POLARITY_HIGH     _IOR(ST21NFC_MAGIC, 0x05, unsigned int)
-#define ST21NFC_GET_POLARITY	      _IOR(ST21NFC_MAGIC, 0x07, unsigned int)
 #define ST21NFC_RECOVERY              _IOR(ST21NFC_MAGIC, 0x08, unsigned int)
 
 enum st21nfc_read_state {
@@ -304,9 +303,6 @@ static long st21nfc_dev_ioctl(struct file *filp, unsigned int cmd,
 		 * it can returns a value different than 1 in case of high level
 		 */
 		ret = !!gpiod_get_value(st21nfc_dev->gpiod_irq);
-		break;
-	case ST21NFC_GET_POLARITY:
-		ret = IRQ_TYPE_LEVEL_HIGH;
 		break;
 	case ST21NFC_RECOVERY:
 		/* For ST21NFCD usage only */
