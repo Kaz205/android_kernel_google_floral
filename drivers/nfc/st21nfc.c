@@ -32,7 +32,6 @@
  */
 #define ST21NFC_GET_WAKEUP	      _IOR(ST21NFC_MAGIC, 0x01, unsigned int)
 #define ST21NFC_PULSE_RESET		_IOR(ST21NFC_MAGIC, 0x02, unsigned int)
-#define ST21NFC_SET_POLARITY_RISING   _IOR(ST21NFC_MAGIC, 0x03, unsigned int)
 #define ST21NFC_SET_POLARITY_HIGH     _IOR(ST21NFC_MAGIC, 0x05, unsigned int)
 #define ST21NFC_GET_POLARITY	      _IOR(ST21NFC_MAGIC, 0x07, unsigned int)
 #define ST21NFC_RECOVERY              _IOR(ST21NFC_MAGIC, 0x08, unsigned int)
@@ -42,13 +41,6 @@ enum st21nfc_read_state {
 	ST21NFC_PAYLOAD
 };
 
-/*
- * The member 'polarity_mode' defines
- * how the wakeup pin is configured and handled.
- * it can take the following values :
- * IRQF_TRIGGER_RISING
- * IRQF_TRIGGER_HIGH
- */
 struct st21nfc_device {
 	wait_queue_head_t read_wq;
 	struct mutex read_mutex;
@@ -69,8 +61,6 @@ struct st21nfc_device {
 	struct gpio_desc *gpiod_irq;
 	/* GPIO for NFCC Reset pin (output) */
 	struct gpio_desc *gpiod_reset;
-	/* irq_gpio polarity to be used */
-	unsigned int polarity_mode;
 };
 
 /*
@@ -139,32 +129,17 @@ static irqreturn_t st21nfc_dev_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int st21nfc_loc_set_polaritymode(struct st21nfc_device *st21nfc_dev,
-					int mode)
+static int st21nfc_loc_set_polaritymode_high(struct st21nfc_device *st21nfc_dev)
 {
 	struct i2c_client *client = st21nfc_dev->client;
 	struct device *dev = &client->dev;
-	unsigned int irq_type;
 	int ret;
 
-	st21nfc_dev->polarity_mode = mode;
-	/* setup irq_flags */
-	switch (mode) {
-	case IRQF_TRIGGER_RISING:
-		irq_type = IRQ_TYPE_EDGE_RISING;
-		break;
-	case IRQF_TRIGGER_HIGH:
-		irq_type = IRQ_TYPE_LEVEL_HIGH;
-		break;
-	default:
-		irq_type = IRQ_TYPE_EDGE_RISING;
-		break;
-	}
 	if (st21nfc_dev->irq_is_attached) {
 		devm_free_irq(dev, client->irq, st21nfc_dev);
 		st21nfc_dev->irq_is_attached = false;
 	}
-	ret = irq_set_irq_type(client->irq, irq_type);
+	ret = irq_set_irq_type(client->irq, IRQ_TYPE_LEVEL_HIGH);
 	if (ret)
 		return -ENODEV;
 
@@ -174,8 +149,7 @@ static int st21nfc_loc_set_polaritymode(struct st21nfc_device *st21nfc_dev,
 	st21nfc_dev->irq_enabled = true;
 
 	ret = devm_request_irq(dev, client->irq, st21nfc_dev_irq_handler,
-				st21nfc_dev->polarity_mode,
-				client->name, st21nfc_dev);
+				IRQ_TYPE_LEVEL_HIGH, client->name, st21nfc_dev);
 	if (ret)
 		return -ENODEV;
 
@@ -304,11 +278,8 @@ static long st21nfc_dev_ioctl(struct file *filp, unsigned int cmd,
 	int ret = 0;
 
 	switch (cmd) {
-	case ST21NFC_SET_POLARITY_RISING:
-		st21nfc_loc_set_polaritymode(st21nfc_dev, IRQF_TRIGGER_RISING);
-		break;
 	case ST21NFC_SET_POLARITY_HIGH:
-		st21nfc_loc_set_polaritymode(st21nfc_dev, IRQF_TRIGGER_HIGH);
+		st21nfc_loc_set_polaritymode_high(st21nfc_dev);
 		break;
 	case ST21NFC_PULSE_RESET:
 		/* Double pulse is done to exit Quick boot mode.*/
@@ -335,7 +306,7 @@ static long st21nfc_dev_ioctl(struct file *filp, unsigned int cmd,
 		ret = !!gpiod_get_value(st21nfc_dev->gpiod_irq);
 		break;
 	case ST21NFC_GET_POLARITY:
-		ret = st21nfc_dev->polarity_mode;
+		ret = IRQ_TYPE_LEVEL_HIGH;
 		break;
 	case ST21NFC_RECOVERY:
 		/* For ST21NFCD usage only */
