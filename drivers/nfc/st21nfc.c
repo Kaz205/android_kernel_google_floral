@@ -33,7 +33,6 @@
 #define ST21NFC_GET_WAKEUP	      _IOR(ST21NFC_MAGIC, 0x01, unsigned int)
 #define ST21NFC_PULSE_RESET		_IOR(ST21NFC_MAGIC, 0x02, unsigned int)
 #define ST21NFC_SET_POLARITY_HIGH     _IOR(ST21NFC_MAGIC, 0x05, unsigned int)
-#define ST21NFC_RECOVERY              _IOR(ST21NFC_MAGIC, 0x08, unsigned int)
 
 enum st21nfc_read_state {
 	ST21NFC_HEADER,
@@ -303,35 +302,6 @@ static long st21nfc_dev_ioctl(struct file *filp, unsigned int cmd,
 		 * it can returns a value different than 1 in case of high level
 		 */
 		ret = !!gpiod_get_value(st21nfc_dev->gpiod_irq);
-		break;
-	case ST21NFC_RECOVERY:
-		/* For ST21NFCD usage only */
-		if (!IS_ERR(st21nfc_dev->gpiod_reset)) {
-			/* pulse low for 20 millisecs */
-			gpiod_set_value(st21nfc_dev->gpiod_reset, 0);
-			usleep_range(10000, 11000);
-			/* During the reset, force IRQ OUT as */
-			/* DH output instead of input in normal usage */
-			ret = gpiod_direction_output(st21nfc_dev->gpiod_irq, 1);
-			if (ret) {
-				ret = -ENODEV;
-				break;
-			}
-
-			gpiod_set_value(st21nfc_dev->gpiod_irq, 1);
-			usleep_range(10000, 11000);
-			gpiod_set_value(st21nfc_dev->gpiod_reset, 1);
-		}
-		msleep(20);
-		gpiod_set_value(st21nfc_dev->gpiod_irq, 0);
-		msleep(20);
-		gpiod_set_value(st21nfc_dev->gpiod_irq, 1);
-		msleep(20);
-		gpiod_set_value(st21nfc_dev->gpiod_irq, 0);
-		msleep(20);
-		ret = gpiod_direction_input(st21nfc_dev->gpiod_irq);
-		if (ret)
-			ret = -ENODEV;
 		break;
 	default:
 		ret = -EINVAL;
