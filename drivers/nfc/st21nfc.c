@@ -304,6 +304,7 @@ static long st21nfc_dev_ioctl(struct file *filp, unsigned int cmd,
 		ret = !!gpiod_get_value(st21nfc_dev->gpiod_irq);
 		break;
 	default:
+		pr_err("%s: Unknown ioctl %u", __func__, cmd);
 		ret = -EINVAL;
 		break;
 	}
