@@ -44,11 +44,10 @@ struct st21nfc_device {
 	struct mutex read_mutex;
 	struct i2c_client *client;
 	struct miscdevice st21nfc_device;
-	bool irq_enabled;
+	atomic_t irq_enabled;
 	bool irq_wake_up;
 	bool irq_is_attached;
 	bool device_open; /* Is device open? */
-	spinlock_t irq_enabled_lock;
 	enum st21nfc_read_state r_state_current;
 
 	/* CLK control */
@@ -87,38 +86,17 @@ static int st21nfc_clock_select(struct st21nfc_device *st21nfc_dev,
 	return 0;
 }
 
-static void st21nfc_disable_irq(struct st21nfc_device *st21nfc_dev)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&st21nfc_dev->irq_enabled_lock, flags);
-	if (st21nfc_dev->irq_enabled) {
-		disable_irq_nosync(st21nfc_dev->client->irq);
-		st21nfc_dev->irq_enabled = false;
-	}
-	spin_unlock_irqrestore(&st21nfc_dev->irq_enabled_lock, flags);
-}
-
-static void st21nfc_enable_irq(struct st21nfc_device *st21nfc_dev)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&st21nfc_dev->irq_enabled_lock, flags);
-	if (!st21nfc_dev->irq_enabled) {
-		st21nfc_dev->irq_enabled = true;
-		enable_irq(st21nfc_dev->client->irq);
-	}
-	spin_unlock_irqrestore(&st21nfc_dev->irq_enabled_lock, flags);
-}
-
 static irqreturn_t st21nfc_dev_irq_handler(int irq, void *dev_id)
 {
 	struct st21nfc_device *st21nfc_dev = dev_id;
 
+	if (!atomic_read(&st21nfc_dev->irq_enabled))
+		return IRQ_NONE;
+
 	if (device_may_wakeup(&st21nfc_dev->client->dev))
 		pm_wakeup_event(&st21nfc_dev->client->dev,
 			WAKEUP_SRC_TIMEOUT);
-	st21nfc_disable_irq(st21nfc_dev);
+	atomic_set(&st21nfc_dev->irq_enabled, 0);
 
 	/* Wake up waiting readers */
 	wake_up(&st21nfc_dev->read_wq);
@@ -143,7 +121,7 @@ static int st21nfc_loc_set_polaritymode_high(struct st21nfc_device *st21nfc_dev)
 	/* request irq.  the irq is set whenever the chip has data available
 	 * for reading.  it is cleared when all data has been read.
 	 */
-	st21nfc_dev->irq_enabled = true;
+	atomic_set(&st21nfc_dev->irq_enabled, 1);
 
 	ret = devm_request_irq(dev, client->irq, st21nfc_dev_irq_handler,
 				IRQ_TYPE_LEVEL_HIGH, client->name, st21nfc_dev);
@@ -151,7 +129,7 @@ static int st21nfc_loc_set_polaritymode_high(struct st21nfc_device *st21nfc_dev)
 		return -ENODEV;
 
 	st21nfc_dev->irq_is_attached = true;
-	st21nfc_disable_irq(st21nfc_dev);
+	atomic_set(&st21nfc_dev->irq_enabled, 0);
 
 	return ret;
 }
@@ -326,11 +304,9 @@ static unsigned int st21nfc_poll(struct file *file, poll_table *wait)
 
 	if (pinlev) {
 		mask = POLLIN | POLLRDNORM;	/* signal data avail */
-		st21nfc_disable_irq(st21nfc_dev);
+		atomic_set(&st21nfc_dev->irq_enabled, 0);
 	} else {
-		/* Wake_up_pin is low. Activate ISR  */
-		if (!st21nfc_dev->irq_enabled)
-			st21nfc_enable_irq(st21nfc_dev);
+		atomic_set(&st21nfc_dev->irq_enabled, 1);
 	}
 	return mask;
 }
@@ -382,7 +358,6 @@ static int st21nfc_probe(struct i2c_client *client,
 	/* init mutex and queues */
 	init_waitqueue_head(&st21nfc_dev->read_wq);
 	mutex_init(&st21nfc_dev->read_mutex);
-	spin_lock_init(&st21nfc_dev->irq_enabled_lock);
 	st21nfc_dev->st21nfc_device.minor = MISC_DYNAMIC_MINOR;
 	st21nfc_dev->st21nfc_device.name = "st21nfc";
 	st21nfc_dev->st21nfc_device.fops = &st21nfc_dev_fops;
@@ -409,7 +384,8 @@ static int st21nfc_suspend(struct device *device)
 	struct i2c_client *client = to_i2c_client(device);
 	struct st21nfc_device *st21nfc_dev = i2c_get_clientdata(client);
 
-	if (device_may_wakeup(&client->dev) && st21nfc_dev->irq_enabled) {
+	if (device_may_wakeup(&client->dev) &&
+	    atomic_read(&st21nfc_dev->irq_enabled)) {
 		if (!enable_irq_wake(client->irq))
 			st21nfc_dev->irq_wake_up = true;
 	}
