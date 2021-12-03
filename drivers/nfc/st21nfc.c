@@ -44,7 +44,6 @@ struct st21nfc_device {
 	struct mutex read_mutex;
 	struct i2c_client *client;
 	struct miscdevice st21nfc_device;
-	char buffer[MAX_BUFFER_SIZE];
 	bool irq_enabled;
 	bool irq_wake_up;
 	bool irq_is_attached;
@@ -163,6 +162,7 @@ static ssize_t st21nfc_dev_read(struct file *filp, char __user *buf,
 	struct st21nfc_device *st21nfc_dev = container_of(filp->private_data,
 						       struct st21nfc_device,
 						       st21nfc_device);
+	char buffer[MAX_BUFFER_SIZE];
 	int ret, idle;
 
 	if (!count)
@@ -173,7 +173,7 @@ static ssize_t st21nfc_dev_read(struct file *filp, char __user *buf,
 
 	mutex_lock(&st21nfc_dev->read_mutex);
 	/* Read data */
-	ret = i2c_master_recv(st21nfc_dev->client, st21nfc_dev->buffer, count);
+	ret = i2c_master_recv(st21nfc_dev->client, buffer, count);
 	if (ret < 0) {
 		mutex_unlock(&st21nfc_dev->read_mutex);
 		return ret;
@@ -181,16 +181,14 @@ static ssize_t st21nfc_dev_read(struct file *filp, char __user *buf,
 	if (st21nfc_dev->r_state_current == ST21NFC_HEADER) {
 		/* Counting idle index */
 		for (idle = 0;
-		     idle < ret && st21nfc_dev->buffer[idle] == IDLE_CHARACTER;
+		     idle < ret && buffer[idle] == IDLE_CHARACTER;
 		     idle++)
 			;
 
 		if (idle > 0 && idle < HEADER_LENGTH) {
-			memmove(st21nfc_dev->buffer,
-				st21nfc_dev->buffer + idle, ret - idle);
+			memmove(buffer, buffer + idle, ret - idle);
 			ret = i2c_master_recv(st21nfc_dev->client,
-					      st21nfc_dev->buffer + ret - idle,
-					      idle);
+					      buffer + ret - idle, idle);
 			if (ret < 0) {
 				mutex_unlock(&st21nfc_dev->read_mutex);
 				return ret;
@@ -208,13 +206,13 @@ static ssize_t st21nfc_dev_read(struct file *filp, char __user *buf,
 	if (idle < HEADER_LENGTH) {
 		/* change state only if a payload is detected, i.e. size > 0*/
 		if ((st21nfc_dev->r_state_current == ST21NFC_HEADER) &&
-			(st21nfc_dev->buffer[2] > 0))
+			(buffer[2] > 0))
 			st21nfc_dev->r_state_current = ST21NFC_PAYLOAD;
 		else
 			st21nfc_dev->r_state_current = ST21NFC_HEADER;
 	}
 
-	if (copy_to_user(buf, st21nfc_dev->buffer, ret))
+	if (copy_to_user(buf, buffer, ret))
 		return -EFAULT;
 
 	return ret;
@@ -225,16 +223,17 @@ static ssize_t st21nfc_dev_write(struct file *filp, const char __user *buf,
 {
 	struct st21nfc_device *st21nfc_dev = container_of(filp->private_data,
 				   struct st21nfc_device, st21nfc_device);
+	char buffer[MAX_BUFFER_SIZE];
 	int ret;
 
 	if (count > MAX_BUFFER_SIZE)
 		count = MAX_BUFFER_SIZE;
 
-	if (copy_from_user(st21nfc_dev->buffer, buf, count))
+	if (copy_from_user(buffer, buf, count))
 		return -EFAULT;
 
 	/* Write data */
-	ret = i2c_master_send(st21nfc_dev->client, st21nfc_dev->buffer, count);
+	ret = i2c_master_send(st21nfc_dev->client, buffer, count);
 	if (ret != count)
 		ret = -EIO;
 
