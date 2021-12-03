@@ -171,6 +171,7 @@ static ssize_t st21nfc_dev_read(struct file *filp, char __user *buf,
 	if (count > MAX_BUFFER_SIZE)
 		count = MAX_BUFFER_SIZE;
 
+	memset(buffer, 0, sizeof(buffer));
 	mutex_lock(&st21nfc_dev->read_mutex);
 	/* Read data */
 	ret = i2c_master_recv(st21nfc_dev->client, buffer, count);
