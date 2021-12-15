@@ -150,13 +150,12 @@ static ssize_t st21nfc_dev_read(struct file *filp, char __user *buf,
 		count = MAX_BUFFER_SIZE;
 
 	memset(buffer, 0, sizeof(buffer));
-	mutex_lock(&st21nfc_dev->read_mutex);
 	/* Read data */
 	ret = i2c_master_recv(st21nfc_dev->client, buffer, count);
 	if (ret < 0) {
-		mutex_unlock(&st21nfc_dev->read_mutex);
 		return ret;
 	}
+	mutex_lock(&st21nfc_dev->read_mutex);
 	if (st21nfc_dev->r_state_current == ST21NFC_HEADER) {
 		/* Counting idle index */
 		for (idle = 0;
