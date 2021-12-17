@@ -47,7 +47,6 @@ struct st21nfc_device {
 	atomic_t irq_enabled;
 	bool irq_wake_up;
 	bool irq_is_attached;
-	bool device_open; /* Is device open? */
 	enum st21nfc_read_state r_state_current;
 
 	/* CLK control */
@@ -214,31 +213,6 @@ static ssize_t st21nfc_dev_write(struct file *filp, const char __user *buf,
 	return ret;
 }
 
-static int st21nfc_dev_open(struct inode *inode, struct file *filp)
-{
-	struct st21nfc_device *st21nfc_dev = container_of(filp->private_data,
-						       struct st21nfc_device,
-						       st21nfc_device);
-	int ret = 0;
-
-	if (st21nfc_dev->device_open)
-		ret = -EBUSY;
-	else
-		st21nfc_dev->device_open = true;
-
-	return ret;
-}
-
-static int st21nfc_release(struct inode *inode, struct file *file)
-{
-	struct st21nfc_device *st21nfc_dev = container_of(file->private_data,
-						       struct st21nfc_device,
-						       st21nfc_device);
-
-	st21nfc_dev->device_open = false;
-	return 0;
-}
-
 static long st21nfc_dev_ioctl(struct file *filp, unsigned int cmd,
 			      unsigned long arg)
 {
@@ -311,9 +285,7 @@ static const struct file_operations st21nfc_dev_fops = {
 	.llseek = no_llseek,
 	.read = st21nfc_dev_read,
 	.write = st21nfc_dev_write,
-	.open = st21nfc_dev_open,
 	.poll = st21nfc_poll,
-	.release = st21nfc_release,
 	.unlocked_ioctl = st21nfc_dev_ioctl
 };
 
