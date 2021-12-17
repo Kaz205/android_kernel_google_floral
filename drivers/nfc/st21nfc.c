@@ -142,6 +142,7 @@ static ssize_t st21nfc_dev_read(struct file *filp, char __user *buf,
 						       st21nfc_device);
 	char buffer[MAX_BUFFER_SIZE];
 	int ret, idle;
+	DEFINE_MUTEX(r_state_current_lock);
 
 	if (!count)
 		return 0;
@@ -155,7 +156,7 @@ static ssize_t st21nfc_dev_read(struct file *filp, char __user *buf,
 	if (ret < 0) {
 		return ret;
 	}
-	mutex_lock(&st21nfc_dev->read_mutex);
+	mutex_lock(&r_state_current_lock);
 	if (st21nfc_dev->r_state_current == ST21NFC_HEADER) {
 		/* Counting idle index */
 		for (idle = 0;
@@ -174,7 +175,7 @@ static ssize_t st21nfc_dev_read(struct file *filp, char __user *buf,
 			ret = count;
 		}
 	}
-	mutex_unlock(&st21nfc_dev->read_mutex);
+	mutex_unlock(&r_state_current_lock);
 
 	if (idle < HEADER_LENGTH) {
 		/* change state only if a payload is detected, i.e. size > 0*/
@@ -351,7 +352,6 @@ static int st21nfc_probe(struct i2c_client *client,
 
 	/* init mutex and queues */
 	init_waitqueue_head(&st21nfc_dev->read_wq);
-	mutex_init(&st21nfc_dev->read_mutex);
 	st21nfc_dev->st21nfc_device.minor = MISC_DYNAMIC_MINOR;
 	st21nfc_dev->st21nfc_device.name = "st21nfc";
 	st21nfc_dev->st21nfc_device.fops = &st21nfc_dev_fops;
@@ -360,17 +360,13 @@ static int st21nfc_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, st21nfc_dev);
 	ret = misc_register(&st21nfc_dev->st21nfc_device);
 	if (ret)
-		goto err_misc_register;
+		return ret;
 
 	device_init_wakeup(&client->dev, true);
 	device_set_wakeup_capable(&client->dev, true);
 	st21nfc_dev->irq_wake_up = false;
 
 	return 0;
-
-err_misc_register:
-	mutex_destroy(&st21nfc_dev->read_mutex);
-	return ret;
 }
 
 static int st21nfc_suspend(struct device *device)
