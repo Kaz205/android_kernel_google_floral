@@ -6,7 +6,6 @@
  */
 
 #include <linux/i2c.h>
-#include <linux/irq.h>
 #include <linux/uaccess.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -46,7 +45,6 @@ struct st21nfc_device {
 	struct miscdevice st21nfc_device;
 	atomic_t irq_enabled;
 	bool irq_wake_up;
-	bool irq_is_attached;
 	enum st21nfc_read_state r_state_current;
 
 	/* CLK control */
@@ -101,36 +99,6 @@ static irqreturn_t st21nfc_dev_irq_handler(int irq, void *dev_id)
 	wake_up(&st21nfc_dev->read_wq);
 
 	return IRQ_HANDLED;
-}
-
-static int st21nfc_loc_set_polaritymode_high(struct st21nfc_device *st21nfc_dev)
-{
-	struct i2c_client *client = st21nfc_dev->client;
-	struct device *dev = &client->dev;
-	int ret;
-
-	if (st21nfc_dev->irq_is_attached) {
-		devm_free_irq(dev, client->irq, st21nfc_dev);
-		st21nfc_dev->irq_is_attached = false;
-	}
-	ret = irq_set_irq_type(client->irq, IRQ_TYPE_LEVEL_HIGH);
-	if (ret)
-		return -ENODEV;
-
-	/* request irq.  the irq is set whenever the chip has data available
-	 * for reading.  it is cleared when all data has been read.
-	 */
-	atomic_set(&st21nfc_dev->irq_enabled, 1);
-
-	ret = devm_request_irq(dev, client->irq, st21nfc_dev_irq_handler,
-				IRQ_TYPE_LEVEL_HIGH, client->name, st21nfc_dev);
-	if (ret)
-		return -ENODEV;
-
-	st21nfc_dev->irq_is_attached = true;
-	atomic_set(&st21nfc_dev->irq_enabled, 0);
-
-	return ret;
 }
 
 static ssize_t st21nfc_dev_read(struct file *filp, char __user *buf,
@@ -224,8 +192,7 @@ static long st21nfc_dev_ioctl(struct file *filp, unsigned int cmd,
 
 	switch (cmd) {
 	case ST21NFC_SET_POLARITY_HIGH:
-		st21nfc_loc_set_polaritymode_high(st21nfc_dev);
-		break;
+		return 0;
 	case ST21NFC_PULSE_RESET:
 		/* Double pulse is done to exit Quick boot mode.*/
 		if (!IS_ERR(st21nfc_dev->gpiod_reset)) {
@@ -317,6 +284,11 @@ static int st21nfc_probe(struct i2c_client *client,
 		return -ENODEV;
 
 	ret = st21nfc_clock_select(st21nfc_dev, dev);
+	if (ret)
+		return ret;
+
+	ret = devm_request_irq(dev, client->irq, st21nfc_dev_irq_handler,
+			       0, client->name, st21nfc_dev);
 	if (ret)
 		return ret;
 

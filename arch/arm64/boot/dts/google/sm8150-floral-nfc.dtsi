@@ -18,7 +18,7 @@
 		compatible = "st,st21nfc";
 		reg = <0x08>;
 		interrupt-parent = <&tlmm>;
-		interrupts = <47  0>;
+		interrupts = <47 IRQ_TYPE_LEVEL_HIGH>;
 		reset-gpios = <&tlmm 21 0x00>;
 		irq-gpios = <&tlmm 47 0x00>;
 		pidle-gpios = <&tlmm 48 0x00>;
