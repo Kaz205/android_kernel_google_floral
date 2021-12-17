@@ -67,8 +67,6 @@ struct st21nfc_device {
 static int st21nfc_clock_select(struct st21nfc_device *st21nfc_dev,
 				struct device *dev)
 {
-	int ret;
-
 	/* Don't initialize clock if pinctrl is enabled */
 	if (device_property_read_bool(dev, "st,clk_pinctrl"))
 		return 0;
@@ -79,8 +77,7 @@ static int st21nfc_clock_select(struct st21nfc_device *st21nfc_dev,
 	if ((st21nfc_dev->s_clk == NULL) || IS_ERR(st21nfc_dev->s_clk))
 		return 0;
 
-	ret = clk_prepare_enable(st21nfc_dev->s_clk);
-	if (ret)
+	if (clk_prepare_enable(st21nfc_dev->s_clk))
 		return -EINVAL;
 
 	return 0;
@@ -108,14 +105,12 @@ static int st21nfc_loc_set_polaritymode_high(struct st21nfc_device *st21nfc_dev)
 {
 	struct i2c_client *client = st21nfc_dev->client;
 	struct device *dev = &client->dev;
-	int ret;
 
 	if (st21nfc_dev->irq_is_attached) {
 		devm_free_irq(dev, client->irq, st21nfc_dev);
 		st21nfc_dev->irq_is_attached = false;
 	}
-	ret = irq_set_irq_type(client->irq, IRQ_TYPE_LEVEL_HIGH);
-	if (ret)
+	if (irq_set_irq_type(client->irq, IRQ_TYPE_LEVEL_HIGH))
 		return -ENODEV;
 
 	/* request irq.  the irq is set whenever the chip has data available
@@ -123,15 +118,14 @@ static int st21nfc_loc_set_polaritymode_high(struct st21nfc_device *st21nfc_dev)
 	 */
 	atomic_set(&st21nfc_dev->irq_enabled, 1);
 
-	ret = devm_request_irq(dev, client->irq, st21nfc_dev_irq_handler,
-				IRQ_TYPE_LEVEL_HIGH, client->name, st21nfc_dev);
-	if (ret)
+	if (devm_request_irq(dev, client->irq, st21nfc_dev_irq_handler,
+				IRQ_TYPE_LEVEL_HIGH, client->name, st21nfc_dev))
 		return -ENODEV;
 
 	st21nfc_dev->irq_is_attached = true;
 	atomic_set(&st21nfc_dev->irq_enabled, 0);
 
-	return ret;
+	return 0;
 }
 
 static ssize_t st21nfc_dev_read(struct file *filp, char __user *buf,
@@ -198,7 +192,6 @@ static ssize_t st21nfc_dev_write(struct file *filp, const char __user *buf,
 	struct st21nfc_device *st21nfc_dev = container_of(filp->private_data,
 				   struct st21nfc_device, st21nfc_device);
 	char buffer[MAX_BUFFER_SIZE];
-	int ret;
 
 	if (count > MAX_BUFFER_SIZE)
 		count = MAX_BUFFER_SIZE;
@@ -207,11 +200,10 @@ static ssize_t st21nfc_dev_write(struct file *filp, const char __user *buf,
 		return -EFAULT;
 
 	/* Write data */
-	ret = i2c_master_send(st21nfc_dev->client, buffer, count);
-	if (ret != count)
-		ret = -EIO;
+	if (i2c_master_send(st21nfc_dev->client, buffer, count) != count)
+		return -EIO;
 
-	return ret;
+	return 0;
 }
 
 static int st21nfc_dev_open(struct inode *inode, struct file *filp)
@@ -388,10 +380,9 @@ static int st21nfc_resume(struct device *device)
 	struct i2c_client *client = to_i2c_client(device);
 	struct st21nfc_device *st21nfc_dev = i2c_get_clientdata(client);
 
-	if (device_may_wakeup(&client->dev) && st21nfc_dev->irq_wake_up) {
-		if (!disable_irq_wake(client->irq))
-			st21nfc_dev->irq_wake_up = false;
-	}
+	if (device_may_wakeup(&client->dev) && st21nfc_dev->irq_wake_up
+	    && !disable_irq_wake(client->irq))
+		st21nfc_dev->irq_wake_up = false;
 
 	return 0;
 }
