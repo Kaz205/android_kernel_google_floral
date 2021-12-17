@@ -176,11 +176,6 @@ static ssize_t st21nfc_dev_read(struct file *filp, char __user *buf,
 	}
 	mutex_unlock(&st21nfc_dev->read_mutex);
 
-	if (ret < 0)
-		return ret;
-	if (ret > count)
-		return -EIO;
-
 	if (idle < HEADER_LENGTH) {
 		/* change state only if a payload is detected, i.e. size > 0*/
 		if ((st21nfc_dev->r_state_current == ST21NFC_HEADER) &&
