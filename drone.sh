@@ -1,8 +1,8 @@
 export ARCH=arm64
 export SUBARCH=arm64
 export ak=AnyKernel3
-export CROSS_COMPILE=/usr/bin/aarch64-linux-gnu-
-export CROSS_COMPILE_ARM32=/usr/bin/arm-none-eabi-
+export CROSS_COMPILE=/drone/src/arm64-gcc/bin/aarch64-elf-
+export CROSS_COMPILE_ARM32=/drone/src/arm32-gcc/bin/arm-eabi-
 
 git submodule init && git submodule update
 
